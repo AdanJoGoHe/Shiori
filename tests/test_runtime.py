@@ -35,6 +35,13 @@ def bundle(root, version="1.2.3a4", constraints="filelock==4.1.0\n"):
 def managed(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(runtime, "command", lambda args: calls.append(args))
+    monkeypatch.setattr(
+        runtime,
+        "candidate_launchers",
+        lambda root, version: {
+            name: (root / name).read_text(encoding="utf-8") for name in ["shiori.py", "shiori.cmd"]
+        },
+    )
     root = tmp_path / "Synthetic work"
     release = bundle(tmp_path / "release")
     runtime.install(root, release, apply=True)
@@ -133,6 +140,41 @@ def test_live_session_refuses_update_before_installing(managed, tmp_path):
             runtime.change_version(root, bundle(tmp_path / "next", "1.2.3a5"), apply=True)
     assert len(calls) == previous_calls
     assert runtime.manifest(root)[0]["active"] == "1.2.3a4"
+
+
+def test_launcher_write_failure_restores_owned_files_and_keeps_active_version(
+    managed, tmp_path, monkeypatch
+):
+    root, _, _ = managed
+    before = {
+        name: (root / name).read_bytes()
+        for name in ["shiori.py", "shiori.cmd", "installation.json"]
+    }
+    monkeypatch.setattr(
+        runtime,
+        "candidate_launchers",
+        lambda *args: {
+            "shiori.py": "# new synthetic launcher\n",
+            "shiori.cmd": "new synthetic command\n",
+        },
+    )
+    write = runtime.atomic_write
+
+    def fail(path, content):
+        if path == root / "shiori.cmd" and content == "new synthetic command\n":
+            raise OSError("Synthetic write failure")
+        write(path, content)
+
+    monkeypatch.setattr(runtime, "atomic_write", fail)
+    with pytest.raises(OSError, match="Synthetic"):
+        runtime.change_version(root, bundle(tmp_path / "next", "1.2.3a5"), apply=True)
+    assert all((root / name).read_bytes() == raw for name, raw in before.items())
+    assert runtime.manifest(root)[0]["active"] == "1.2.3a4"
+
+
+@pytest.mark.parametrize("version", ["1.2.3", "1.2.3b1", "1.2.3rc2"])
+def test_release_runtime_accepts_future_stable_beta_and_rc_versions(tmp_path, version):
+    assert runtime.release_bundle(bundle(tmp_path / "release", version))["version"] == version
 
 
 @pytest.mark.parametrize("mutation", ["launcher", "scope", "paths", "missing-data"])

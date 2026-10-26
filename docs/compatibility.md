@@ -44,3 +44,20 @@ their existing compatibility. Cross-scope note bundles and annotation imports ar
 Actual JetBrains/plugin acceptance remains [issue #2](https://github.com/AdanJoGoHe/Shiori/issues/2).
 No Linux run, corporate data, real work-device setup, remote deployment or published-release-pair
 upgrade is claimed by these checks.
+
+## Published-release updater — 2026-10-26
+
+411 source tests passed (one native symlink privilege skip), including channel selection,
+read-only checks, download bounds/redirects, corrupt/missing/duplicate assets, network errors,
+live-session refusal and preservation of edited skills. A real anonymous GitHub check returned
+no published stable or prerelease; draft releases were not offered.
+
+Installed alpha.3 passed the personal wheel verifier and the work verifier. The latter used
+synthetic GitHub metadata and asset responses with a separately built synthetic stable 0.1.0
+wheel: actual package installation, automatic owned-skill refresh, launcher refresh and rollback
+preserved notes created before and after updating. Both the incoming release folder and install
+path contained spaces and accents; this reproduces the fixed uv 0.12.15 constraint-path parsing
+failure. Wheel and constraints paths are passed as encoded file URIs.
+
+These are local synthetic update/recovery checks, not an upgrade between two published releases
+or acceptance of the actual Augment IDE. Release files remain drafts until explicitly published.

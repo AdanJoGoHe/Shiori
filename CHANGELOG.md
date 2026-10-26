@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.0a3 — unreleased (planned tag v0.1.0-alpha.3)
+
+- Online updater: read-only published-release checks, explicit prerelease opt-in, bounded
+  downloads from official HTTPS hosts, asset/checksum/version validation and existing
+  versioned activation/recovery. Keep offline local bundles supported.
+- Refresh owned Augment skills from the newly active package; preserve edits and report
+  reconciliation separately from successful program updates.
+- Refresh owned launcher contents with recovery snapshots and ordinary write-error rollback;
+  preserve their paths and accept stable/beta/rc package version formats.
+- Pass wheel and constraints paths as encoded file URIs so Windows release/install directories
+  containing spaces and accents work in both the bootstrap and updater.
+
 ## 0.1.0a2 — unreleased (planned tag v0.1.0-alpha.2)
 
 - Separate work scope with paired store identity, isolated provider, scope-aware retrieval,

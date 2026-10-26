@@ -4,12 +4,14 @@ import argparse
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 from fastmcp import Client
+from packaging.version import Version
 
 from second_brain.core import Brain, load_config
 from second_brain.runtime import python_in
@@ -19,9 +21,32 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-dir", type=Path, required=True)
     parser.add_argument("--next-release-dir", type=Path)
+    parser.add_argument(
+        "--simulate-online",
+        action="store_true",
+        help="Synthetic GitHub responses; real downloaded-wheel installation",
+    )
     args = parser.parse_args()
+    if args.simulate_online and not args.next_release_dir:
+        parser.error("--simulate-online requires --next-release-dir")
     release = args.release_dir.resolve()
     temporary = Path(tempfile.mkdtemp(prefix="shiori-work-check-"))
+    incoming = temporary / "Release café files"
+    incoming.mkdir()
+    for path in release.iterdir():
+        if path.name in {"SHA256SUMS", "install-shiori.ps1"} or path.name.endswith(
+            (".whl", "-constraints.txt")
+        ):
+            # Dist may contain older bundles; copy only this installed verifier's release.
+            from importlib.metadata import version
+
+            if (
+                path.name not in {"SHA256SUMS", "install-shiori.ps1"}
+                and f"-{version('second-brain')}-" not in path.name
+            ):
+                continue
+            shutil.copyfile(path, incoming / path.name)
+    release = incoming
     root = temporary / "Synthetic café work"
     if os.name == "nt":
         command = [
@@ -156,10 +181,73 @@ def main():
     original_config = (root / "data/config.json").read_bytes()
     if args.next_release_dir:
         assert cli("update", "--release-dir", str(args.next_release_dir))["applied"] is False
-        assert (
-            cli("update", "--release-dir", str(args.next_release_dir), "--apply")["status"]
-            == "updated"
-        )
+        if args.simulate_online:
+            import hashlib
+            from second_brain.runtime import release_bundle
+
+            next_release = args.next_release_dir.resolve()
+            next_version = release_bundle(next_release)["version"]
+            parsed = Version(next_version)
+            tag = "v" + parsed.base_version
+            if parsed.pre:
+                tag += (
+                    "-"
+                    + {"a": "alpha", "b": "beta", "rc": "rc"}[parsed.pre[0]]
+                    + "."
+                    + str(parsed.pre[1])
+                )
+            metadata = {
+                "tag_name": tag,
+                "draft": False,
+                "prerelease": parsed.is_prerelease,
+                "published_at": "2026-10-26T00:00:00Z",
+                "assets": [],
+            }
+            payloads = {}
+            for index, path in enumerate(sorted(next_release.iterdir()), 1):
+                if path.name != "SHA256SUMS" and not path.name.endswith(
+                    (".whl", "-constraints.txt")
+                ):
+                    continue
+                metadata["assets"].append(
+                    {
+                        "id": index,
+                        "name": path.name,
+                        "state": "uploaded",
+                        "size": path.stat().st_size,
+                        "digest": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest(),
+                    }
+                )
+                payloads[str(index)] = str(path)
+            fixture = temporary / "synthetic-release.json"
+            fixture.write_text(
+                json.dumps({"metadata": metadata, "payloads": payloads}), encoding="utf-8"
+            )
+            script = (
+                "import json,sys; from pathlib import Path; from second_brain import updater; "
+                "fixture=json.loads(Path(sys.argv[2]).read_text(encoding='utf-8')); "
+                "updater.fetch=lambda url,limit,binary=False: "
+                "Path(fixture['payloads'][url.rsplit('/',1)[1]]).read_bytes() if binary else "
+                "json.dumps([fixture['metadata']]).encode(); "
+                "preview=updater.update(Path(sys.argv[1]),prerelease=True); "
+                "assert preview['status']=='available' and not preview['applied']; "
+                "result=updater.update(Path(sys.argv[1]),prerelease=True,apply=True); "
+                "assert result['status']=='updated' and result['skill']=='updated'; "
+                "print(json.dumps(result))"
+            )
+            applied = subprocess.run(
+                [str(executable), "-I", "-X", "utf8", "-c", script, str(root), str(fixture)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=600,
+            )
+            assert applied.returncode == 0, applied.stderr
+        else:
+            assert (
+                cli("update", "--release-dir", str(args.next_release_dir), "--apply")["status"]
+                == "updated"
+            )
         assert cli("status")["active"] != first
         assert cli("run", "read", candidate["id"]) == before
         later = dict(candidate, id="after-update", event_id="after-update")
@@ -198,6 +286,7 @@ def main():
                     "real-isolated-provider",
                 ],
                 "two_version_update_rollback": bool(args.next_release_dir),
+                "online_metadata": "synthetic" if args.simulate_online else "not-used",
             }
         )
     )

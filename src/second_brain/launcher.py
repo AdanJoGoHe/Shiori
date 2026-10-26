@@ -14,7 +14,7 @@ def main():
     if manifest.stat().st_size > 16000:
         raise ValueError("Oversized installation manifest")
     active = json.loads(manifest.read_text(encoding="utf-8"))["active"]
-    if not isinstance(active, str) or not re.fullmatch(r"\d+\.\d+\.\d+a\d+", active):
+    if not isinstance(active, str) or not re.fullmatch(r"\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?", active):
         raise ValueError("Invalid active version")
     interpreter = (
         root / "versions" / active / ("Scripts/python.exe" if os.name == "nt" else "bin/python")

@@ -44,7 +44,9 @@ if (-not $Apply) {
     return
 }
 $null = Get-Command uv -ErrorAction Stop
+$wheelUri = ([System.Uri](Join-Path $releasePath $wheelName)).AbsoluteUri
+$constraintsUri = ([System.Uri](Join-Path $releasePath $constraintsName)).AbsoluteUri
 & uv --no-config tool run --isolated --no-env-file --python 3.12 `
-    --from (Join-Path $releasePath $wheelName) --constraints (Join-Path $releasePath $constraintsName) `
+    --from $wheelUri --constraints $constraintsUri `
     shiori-runtime --root $installPath install --release-dir $releasePath --timezone $Timezone --apply
 if ($LASTEXITCODE -ne 0) { throw 'Installation failed; inspect the partial directory before retrying.' }

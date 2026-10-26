@@ -1,4 +1,4 @@
-"""Manual local-wheel installation and updates; data stays outside version environments."""
+"""Versioned installation and updates; data stays outside version environments."""
 
 import argparse
 import hashlib
@@ -26,7 +26,8 @@ from second_brain.core import Brain, atomic_write, canonical_root, load_config, 
 from second_brain.provider import project_name
 from second_brain.store import check_store
 
-VERSION = re.compile(r"\d+\.\d+\.\d+a\d+\Z")
+VERSION_TEXT = r"\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?"
+VERSION = re.compile(VERSION_TEXT + r"\Z")
 
 
 def digest(raw):
@@ -55,7 +56,7 @@ def release_bundle(directory):
     if len(wheels) != 1:
         raise ValueError("Release must contain exactly one Shiori wheel")
     wheel_name = wheels[0]
-    match = re.fullmatch(r"second_brain-(\d+\.\d+\.\d+a\d+)-py3-none-any.whl", wheel_name)
+    match = re.fullmatch(r"second_brain-(" + VERSION_TEXT + r")-py3-none-any.whl", wheel_name)
     if not match:
         raise ValueError("Unsupported release version or package")
     version = match[1]
@@ -180,8 +181,8 @@ def install_version(root, bundle):
             "--python",
             str(python_in(root, bundle["version"])),
             "--constraint",
-            bundle["constraints"],
-            bundle["wheel"],
+            bundle["constraints"].as_uri(),
+            bundle["wheel"].as_uri(),
         ]
     )
 
@@ -223,10 +224,43 @@ def checkpoint(root, cfg):
     for name, path in [
         ("installation.json", root / "installation.json"),
         ("config.json", root / "data/config.json"),
+        ("shiori.py", root / "shiori.py"),
+        ("shiori.cmd", root / "shiori.cmd"),
     ]:
         (recovery / name).write_bytes(read_file(path))
     backup(Brain(cfg), recovery / "memory")
     return recovery
+
+
+def candidate_launchers(root, version):
+    result = subprocess.run(
+        [
+            str(python_in(root, version)),
+            "-I",
+            "-X",
+            "utf8",
+            "-c",
+            "import json,sys; from pathlib import Path; import second_brain.launcher as module; "
+            "print(json.dumps({'source':Path(module.__file__).read_text(encoding='utf-8'),"
+            "'base':sys._base_executable}))",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+    )
+    if result.returncode:
+        raise ValueError("Cannot inspect candidate launcher; active version preserved")
+    info = json.loads(result.stdout)
+    source, base = info["source"], info["base"]
+    if not isinstance(source, str) or len(source) > 128000 or not isinstance(base, str):
+        raise ValueError("Invalid candidate launcher")
+    if any(c in base for c in '%\r\n"'):
+        raise ValueError("Unsupported character in Windows interpreter path")
+    return {
+        "shiori.py": source,
+        "shiori.cmd": f'@echo off\nsetlocal DisableDelayedExpansion\nchcp 65001 >nul\n"{base}" -I "%~dp0shiori.py" %*\nexit /b %errorlevel%\n',
+    }
 
 
 def install(root, directory, timezone="UTC", apply=False):
@@ -306,8 +340,20 @@ def change_version(root, directory=None, apply=False):
             install_version(root, bundle)
         recovery = checkpoint(root, cfg)
         probe(root, target)
+        launchers = candidate_launchers(root, target)
+        originals = {name: read_file(root / name).decode("utf-8") for name in launchers}
         data.update(active=target, previous=data["active"])
-        atomic_write(root / "installation.json", json.dumps(data, indent=2))
+        data["launchers"] = {name: digest(content.encode()) for name, content in launchers.items()}
+        written = []
+        try:
+            for name, content in launchers.items():
+                atomic_write(root / name, content)
+                written.append(name)
+            atomic_write(root / "installation.json", json.dumps(data, indent=2))
+        except OSError:
+            for name in reversed(written):
+                atomic_write(root / name, originals[name])
+            raise
     return {
         **result,
         "status": "updated" if bundle else "rolled-back",
@@ -400,7 +446,11 @@ def main():
         item = sub.add_parser(name)
         item.add_argument("--apply", action="store_true")
         if name in {"install", "update"}:
-            item.add_argument("--release-dir", type=Path, required=True)
+            item.add_argument("--release-dir", type=Path, required=name == "install")
+        if name == "update":
+            item.add_argument(
+                "--prerelease", action="store_true", help="Include published alpha/beta/rc versions"
+            )
         if name == "install":
             item.add_argument("--timezone", default="UTC")
         if name == "augment":
@@ -415,7 +465,14 @@ def main():
         if args.action == "install":
             result = install(root, args.release_dir, args.timezone, args.apply)
         elif args.action in {"update", "rollback"}:
-            result = change_version(root, getattr(args, "release_dir", None), args.apply)
+            if args.action == "update" and args.release_dir is None:
+                from second_brain.updater import update
+
+                result = update(root, prerelease=args.prerelease, apply=args.apply)
+            else:
+                if args.action == "update" and args.prerelease:
+                    raise ValueError("Use --prerelease only for online release checks")
+                result = change_version(root, getattr(args, "release_dir", None), args.apply)
         elif args.action == "augment":
             with (
                 FileLock(scoped_path(root, "management.lock"), timeout=5)

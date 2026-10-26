@@ -21,7 +21,7 @@ En PowerShell, ajusta las dos rutas. La carpeta de instalación debe ser **nueva
 estar fuera de repositorios Git y de carpetas compartidas o sincronizadas.
 
 ```powershell
-$ReleaseDir = 'C:\Downloads\Shiori-alpha.2'
+$ReleaseDir = 'C:\Downloads\Shiori-alpha.3'
 $InstallDir = Join-Path $env:LOCALAPPDATA 'Shiori\work'
 
 # Revisar archivos y destino; no instala nada.
@@ -44,7 +44,7 @@ La carpeta queda así:
 
 ```text
 work/
-  shiori.py, shiori.cmd     rutas estables
+  shiori.py, shiori.cmd     rutas estables; contenido gestionado por el instalador
   installation.json        versión activa y anterior
   versions/<version>/     programa y dependencias de cada versión
   data/config.json         configuración de esta instalación
@@ -93,7 +93,47 @@ debe fallar. Estas comprobaciones requieren tu IDE; las pruebas de protocolo loc
 La skill consulta antes de trabajar y propone guardar al terminar. Es una instrucción para el
 agente, no un hook que garantice captura automática en todas las conversaciones.
 
-## Actualizar más adelante
+## Actualizar con el updater
+
+Desde alpha.3 puedes comprobar y descargar una actualización desde el repositorio oficial,
+sin buscar los archivos a mano. En PowerShell, con `$InstallDir` apuntando a tu instalación:
+
+```powershell
+# Solo consultar la última versión estable publicada; no descarga paquetes ni escribe archivos.
+& "$InstallDir\shiori.cmd" update
+
+# Mientras uses las alphas, incluir versiones preliminares publicadas.
+& "$InstallDir\shiori.cmd" update --prerelease
+
+# Cerrar MCP y visor, revisar la versión ofrecida y descargar e instalar.
+& "$InstallDir\shiori.cmd" update --prerelease --apply
+```
+
+El primer paso solo consulta metadatos públicos de GitHub. Al aplicar se descargan los tres
+archivos necesarios con límites de tamaño, se verifican hashes y versión y se usa el mismo
+proceso con copia de recuperación y comprobación de compatibilidad. Las descargas temporales
+se eliminan al terminar; las versiones instaladas y las copias de recuperación se conservan.
+
+Si la skill de Augment fue instalada con `augment --apply` y sigue intacta, el updater la
+refresca usando el paquete nuevo. Si la editaste, conserva el archivo y devuelve
+`skill: manual-reconciliation-required`: el programa ya está actualizado y la skill necesita
+revisión. Vuelve a conectar el MCP y abre una conversación nueva después de actualizar.
+
+No requiere login ni lee tokens de GitHub. Usa HTTPS y los assets del repositorio
+`AdanJoGoHe/Shiori`; respeta la configuración de proxy del sistema. Si la red falla o GitHub
+limita peticiones, informa del problema sin cambiar la versión activa; puedes reintentarlo
+más tarde o usar los archivos locales. No se instala un servicio en segundo plano.
+
+**Solo se ofrecen releases publicadas.** Un borrador no cuenta como actualización. Sin releases
+estables publicadas, `update` devuelve `no-published-release`; usa `--prerelease` para las alphas.
+Ese modo revisa como máximo las 100 releases más recientes y elige la versión mayor compatible
+con los nombres oficiales. No instala versiones iguales o anteriores a la activa.
+
+Una instalación alpha.2 todavía no tiene este updater: actualiza una vez desde los archivos
+locales de alpha.3. Los comandos siguientes sirven también cuando prefieres trasladar paquetes
+a un equipo sin acceso a GitHub.
+
+## Actualizar desde archivos locales
 
 Descarga y revisa los archivos de la siguiente versión en **otra carpeta**. Detén la conexión
 MCP y el visor; cierra también procesos CLI que usen esta memoria directamente.
@@ -116,7 +156,7 @@ Augment mantiene el mismo comando. Vuelve a conectar el MCP y abre una conversac
 cargar la skill actualizada. La actualización de software y la de la skill son pasos explícitos;
 si editaste la skill, el segundo se detiene sin deshacer la actualización del programa.
 
-No hay búsqueda automática de versiones ni actualizaciones en segundo plano. Las sesiones
+La comprobación se inicia con `update`; no hay tareas ni instalaciones en segundo plano. Las sesiones
 arrancadas con el lanzador bloquean el cambio de versión mientras estén abiertas. Los procesos
 arrancados por otra vía quedan fuera de ese control y debes detenerlos tú.
 

@@ -198,7 +198,7 @@ class Viewer:
                 permitted = (
                     mark_kind == "documentation"
                     and mark_source in self.catalog.brain.config.get("documentation_roots", {})
-                ) or (mark_kind in {"note", "journal"} and mark_source == "personal")
+                ) or (mark_kind in {"note", "journal"} and mark_source == self.catalog.brain.scope)
                 if (
                     not permitted
                     or (kind and kind != mark_kind)
@@ -233,7 +233,7 @@ class Viewer:
             else set()
         )
         if kind != "documentation":
-            sources.add("personal")
+            sources.add(self.catalog.brain.scope)
         facets["source"] = sorted(sources)
         facets["category"] = marks["categories"]
         terms = normalized(query).split()

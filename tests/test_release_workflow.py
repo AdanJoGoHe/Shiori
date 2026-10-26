@@ -27,6 +27,12 @@ def bundle(tmp_path, monkeypatch):
     skill = tmp_path / "skills/second-brain/SKILL.md"
     skill.parent.mkdir(parents=True)
     skill.write_text("Synthetic skill\n", encoding="utf-8")
+    work_skill = tmp_path / "skills/shiori-work/SKILL.md"
+    work_skill.parent.mkdir(parents=True)
+    work_skill.write_text("Synthetic work skill\n", encoding="utf-8")
+    installer = tmp_path / "scripts/install-shiori.ps1"
+    installer.parent.mkdir()
+    installer.write_text("# Synthetic installer\n", encoding="utf-8")
     dist = tmp_path / "dist"
     dist.mkdir()
     with zipfile.ZipFile(dist / "second_brain-1.2.3a4-py3-none-any.whl", "w") as archive:
@@ -36,6 +42,10 @@ def bundle(tmp_path, monkeypatch):
         )
         archive.writestr(
             "second_brain-1.2.3a4.dist-info/METADATA", "Name: second-brain\nVersion: 1.2.3a4\n"
+        )
+        archive.writestr(
+            "second_brain/resources/shiori-work/SKILL.md",
+            work_skill.read_bytes().replace(b"\r\n", b"\n"),
         )
     with tarfile.open(dist / "second_brain-1.2.3a4.tar.gz", "w:gz") as archive:
         item = tarfile.TarInfo("second_brain-1.2.3a4/README.md")
@@ -78,7 +88,7 @@ def test_version_mapping_assets_and_checksums(bundle):
     assert result["tag"] == "v1.2.3-alpha.4"
     assert result["notes"] == "docs/releases/v1.2.3-alpha.4.md"
     hashes = (bundle / "dist/SHA256SUMS").read_text().splitlines()
-    assert len(hashes) == 3
+    assert len(hashes) == 4
     for line in hashes:
         digest, name = line.split("  ")
         assert digest == hashlib.sha256((bundle / "dist" / name).read_bytes()).hexdigest()

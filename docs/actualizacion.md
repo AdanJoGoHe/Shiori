@@ -1,5 +1,8 @@
 # Actualizar un despliegue existente
 
+Para la instalación gestionada de trabajo con Augment, usa [update y rollback](augment-trabajo.md#actualizar-más-adelante).
+Lo que sigue describe la instalación personal con Codex que ya existía.
+
 La actualización tiene dos partes: instalar el programa elegido y actualizar su integración
 con Codex. El workflow de release prepara paquetes; no actualiza los equipos desplegados.
 `upgrade-codex` actualiza la integración local desde el Python que lo ejecuta. No descarga

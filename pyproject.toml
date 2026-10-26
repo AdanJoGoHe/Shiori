@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "second-brain"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Your notes, commands and things you have learned, ready when you need them."
 requires-python = ">=3.12"
-dependencies = ["PyYAML==6.0.3", "filelock==4.1.0", "tzdata==2026.5", "basic-memory==0.23.2", "markdown-it-py==4.2.0"]
+dependencies = ["PyYAML==6.0.3", "filelock==4.1.0", "tzdata==2026.5", "basic-memory==0.23.2", "markdown-it-py==4.2.0", "packaging==26.3"]
 
 [project.urls]
 Source = "https://github.com/AdanJoGoHe/Shiori"
@@ -20,9 +20,11 @@ dev = ["pytest==9.1.1", "ruff==0.17.0"]
 [project.scripts]
 shiori = "second_brain.cli:main"
 second-brain = "second_brain.cli:main"
+shiori-runtime = "second_brain.runtime:main"
 
 [tool.hatch.build.targets.wheel.force-include]
 "skills/second-brain/SKILL.md" = "second_brain/resources/second-brain/SKILL.md"
+"skills/shiori-work/SKILL.md" = "second_brain/resources/shiori-work/SKILL.md"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

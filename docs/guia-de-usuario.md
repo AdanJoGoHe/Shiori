@@ -5,7 +5,8 @@ Si lo usabas como Second Brain, `shiori` y `second-brain` hacen lo mismo; tus no
 siguen en sus carpetas. [Sobre el cambio de nombre](branding.md).
 
 Esta guía está pensada para **Windows, PowerShell, Python 3.12 y Codex**. Shiori sigue en alpha
-y, por ahora, solo admite uso personal. Hay pruebas de código en Linux, pero la instalación
+y mantiene separado cada despliegue. Para una memoria de trabajo nueva con Augment, sigue
+[su guía de instalación y actualizaciones](augment-trabajo.md). Hay pruebas de código en Linux, pero la instalación
 completa con Codex todavía no está comprobada allí.
 
 ## Por dónde empezar
@@ -42,7 +43,8 @@ ido haciendo. Que algo aparezca en una búsqueda no significa que debas ejecutar
 
 Los datos se almacenan localmente, pero los extractos que recibe un agente entran en el contexto
 de su proveedor de IA. No guardes credenciales, conversaciones completas, datos de clientes o
-material corporativo. El detector de secretos ayuda; no garantiza reconocerlos todos.
+material corporativo en la memoria personal. El perfil de trabajo tiene sus propias reglas.
+El detector de secretos ayuda; no garantiza reconocerlos todos.
 
 ## Primeros cinco minutos
 
@@ -563,4 +565,4 @@ Guardar una nota no ejecuta ese workflow ni publica el vault. [Guía de publicac
 
 Revisada el 2026-10-24 contra CLI/contratos actuales. Payloads comprobados con datos sintéticos;
 no implica reinstalar el equipo, copiar el vault ni publicar. Fuera de esta alpha: hooks
-automáticos, despliegue corporativo, aceptación real de Claude/Augment y grafos.
+automáticos, aceptación real de Claude/Augment en sus equipos y grafos.

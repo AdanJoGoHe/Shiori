@@ -50,10 +50,11 @@ def prepare(root):
         )
         if metadata["Version"] != version or metadata["Name"] != "second-brain":
             raise ValueError("Wheel metadata does not match project version/name")
-        if archive.read("second_brain/resources/second-brain/SKILL.md") != (
-            root / "skills/second-brain/SKILL.md"
-        ).read_bytes().replace(b"\r\n", b"\n"):
-            raise ValueError("Packaged skill differs from canonical source")
+        for skill in ["second-brain", "shiori-work"]:
+            if archive.read(f"second_brain/resources/{skill}/SKILL.md") != (
+                root / f"skills/{skill}/SKILL.md"
+            ).read_bytes().replace(b"\r\n", b"\n"):
+                raise ValueError("Packaged skill differs from canonical source")
     with tarfile.open(dist / sdist) as archive:
         members = archive.getmembers()
         if any(not item.isfile() and not item.isdir() for item in members):
@@ -88,14 +89,23 @@ def prepare(root):
         check=True,
     )
     (dist / constraints).write_text(exported.stdout, encoding="utf-8")
-    names = [wheel, sdist, constraints]
+    installer = "install-shiori.ps1"
+    (dist / installer).write_bytes((root / "scripts" / installer).read_bytes())
+    names = [wheel, sdist, constraints, installer]
     (dist / "SHA256SUMS").write_text(
         "".join(
             f"{hashlib.sha256((dist / name).read_bytes()).hexdigest()}  {name}\n" for name in names
         ),
         encoding="utf-8",
     )
-    return {"tag": tag, "wheel": wheel, "sdist": sdist, "constraints": constraints, "notes": notes}
+    return {
+        "tag": tag,
+        "wheel": wheel,
+        "sdist": sdist,
+        "constraints": constraints,
+        "installer": installer,
+        "notes": notes,
+    }
 
 
 if __name__ == "__main__":

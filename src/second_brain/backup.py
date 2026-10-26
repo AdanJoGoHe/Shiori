@@ -89,9 +89,11 @@ def validate_files(files):
     return ledger
 
 
-def write_files(destination, files):
+def write_files(destination, files, config=None):
     # Exclusive directory creation is the no-overwrite boundary. Leave partial failures visible.
     destination.mkdir(mode=0o700)
+    if config is not None:
+        Brain(config)  # Initialize a new scoped store before copying verified files.
     for name, raw in files.items():
         path = scoped_path(destination, name)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -99,6 +101,19 @@ def write_files(destination, files):
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
+
+
+def validate_scope_files(files, scope):
+    if "state/annotations.json" in files:
+        annotations = decode(files["state/annotations.json"].decode("utf-8"))
+        if annotations.get("scope", "personal") != scope:
+            raise ValueError("Annotation scope does not match backup")
+    for name, raw in files.items():
+        if not name.startswith("vault/") or name.startswith("vault/journal/"):
+            continue
+        path = Path(name)
+        note_id = path.parent.name if name.startswith("vault/archive/") else path.stem
+        validate_note(raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n"), note_id, scope)
 
 
 def backup(brain, output):
@@ -111,6 +126,7 @@ def backup(brain, output):
     if output.exists():
         raise ValueError("Backup destination already exists")
     with brain.lock, Annotations(brain).lock:
+        brain.ledger()
         files = {}
         for folder in sorted(set(TYPES.values()) | {"journal", "archive"}):
             root = brain.path(folder)
@@ -135,11 +151,12 @@ def backup(brain, output):
         if annotation_path.exists():
             files["state/annotations.json"] = read_bounded(annotation_path)
         ledger = validate_files(files)
+        validate_scope_files(files, brain.scope)
         for note_id in ledger["notes"]:
             brain.read(note_id)
         manifest = {
             "schema_version": 1,
-            "scope": "personal",
+            "scope": brain.scope,
             "timezone": brain.config["timezone"],
             "created_at": brain.now().isoformat(),
             "source_paused": (brain.state / "paused").exists(),
@@ -150,7 +167,7 @@ def backup(brain, output):
     return {"status": "backed-up", "files": len(files), "bytes": sum(map(len, files.values()))}
 
 
-def read_bundle(source):
+def read_bundle(source, expected_scope=None):
     source = local_path(source)
     manifest = json.loads(read_bounded(scoped_path(source, "manifest.json")))
     if (
@@ -159,7 +176,7 @@ def read_bundle(source):
         != {"schema_version", "scope", "timezone", "created_at", "source_paused", "files"}
         or type(manifest["schema_version"]) is not int
         or manifest["schema_version"] != 1
-        or manifest["scope"] != "personal"
+        or manifest["scope"] not in {"personal", "work"}
         or type(manifest["source_paused"]) is not bool
         or not isinstance(manifest["timezone"], str)
         or not isinstance(manifest["created_at"], str)
@@ -167,6 +184,8 @@ def read_bundle(source):
         or not 1 <= len(manifest["files"]) <= MAX_FILES
     ):
         raise ValueError("Unsupported backup manifest")
+    if expected_scope is not None and manifest["scope"] != expected_scope:
+        raise ValueError("Backup scope does not match deployment")
     ZoneInfo(manifest["timezone"])
     if datetime.fromisoformat(manifest["created_at"]).tzinfo is None:
         raise ValueError("Backup timestamp requires timezone")
@@ -181,12 +200,10 @@ def read_bundle(source):
         if sum(map(len, files.values())) > MAX_BYTES:
             raise ValueError("Backup exceeds byte limit")
     ledger = validate_files(files)
-    for note_id, relative in ledger["notes"].items():
-        try:
-            content = files[f"vault/{relative}"].decode("utf-8")
-            validate_note(content.replace("\r\n", "\n").replace("\r", "\n"), note_id)
-        except (ValueError, TypeError, KeyError):
-            raise ValueError("Invalid canonical note in backup") from None
+    try:
+        validate_scope_files(files, manifest["scope"])
+    except (ValueError, TypeError, KeyError):
+        raise ValueError("Invalid canonical or archived note in backup") from None
     return manifest, files, ledger
 
 
@@ -199,15 +216,15 @@ def restore(source, destination):
     ):
         raise ValueError("Restore requires a new destination separate from the backup")
     manifest, files, ledger = read_bundle(source)
-    write_files(destination, files)
     config = {
         "schema_version": 1,
-        "scope": "personal",
+        "scope": manifest["scope"],
         "timezone": manifest["timezone"],
         "vault_path": str(destination / "vault"),
         "state_path": str(destination / "state"),
         "basic_memory_config_dir": str(destination / "state/basic-memory"),
     }
+    write_files(destination, files, config)
     restored = Brain(config)
     for note_id in ledger["notes"]:
         restored.read(note_id)

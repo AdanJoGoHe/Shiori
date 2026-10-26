@@ -13,7 +13,7 @@ Once reviewed/merged into main:
 3. On main only, the workflow first validates Windows through `validate.yml`, including isolated
    wheel acceptance. Dispatches on other branches skip both jobs before allocating runners.
 4. A Linux release job runs the local source checks, builds the exact dispatched commit, audits
-   the bundle and tests that wheel, then creates a version-derived tag/draft with four named assets. The tag is
+   the bundle and tests that wheel, then creates a version-derived tag/draft with five named assets (wheel, source, constraints, Windows installer and checksums). The tag is
    derived from `pyproject.toml` (`0.1.0a1` → `v0.1.0-alpha.1`); matching notes must exist under
    `docs/releases/`. Other version schemes require an explicit mapping update before use.
 5. Review the draft's wheel, source archive, pinned constraints and SHA256SUMS. Publish the draft

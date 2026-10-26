@@ -19,7 +19,7 @@ def main():
     for stream in [sys.stdout, sys.stderr]:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description="Shiori: personal Markdown memory and journal")
+    parser = argparse.ArgumentParser(description="Shiori: Markdown memory and journal")
     parser.add_argument("--config", type=Path, default=default_config())
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ["status", "doctor", "pause", "resume", "serve", "install-codex", "uninstall"]:
@@ -232,7 +232,7 @@ def main():
                 for note_id in brain.ledger()["notes"]:
                     brain.read(note_id)
                 result["note_validation"] = "passed"
-                result["host_integration"] = "requires a fresh Codex session"
+                result["host_integration"] = "requires a fresh agent session"
                 if args.provider:
                     import asyncio
                     from second_brain.provider import probe_provider

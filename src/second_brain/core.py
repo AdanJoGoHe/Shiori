@@ -10,6 +10,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import yaml
+
+from second_brain.store import SCOPES, check_store, initialize_work
 from filelock import FileLock
 
 TYPES = {
@@ -89,9 +91,9 @@ def note_metadata(values, previous=None):
     return result
 
 
-def validate_candidate(candidate):
-    if not isinstance(candidate, dict) or candidate.get("scope") != "personal":
-        raise ValueError("Candidate must explicitly use personal scope")
+def validate_candidate(candidate, scope="personal"):
+    if scope not in SCOPES or not isinstance(candidate, dict) or candidate.get("scope") != scope:
+        raise ValueError(f"Candidate must explicitly use {scope} scope")
     mode = candidate.get("mode", "note")
     if mode not in {"note", "journal-only"}:
         raise ValueError("Invalid capture mode")
@@ -137,9 +139,9 @@ def load_config(path):
     if (
         not isinstance(config, dict)
         or config.get("schema_version") != 1
-        or config.get("scope") != "personal"
+        or config.get("scope") not in SCOPES
     ):
-        raise ValueError("Only personal deployments are enabled in v0.1")
+        raise ValueError("Configuration must select personal or work scope")
     if not {"vault_path", "state_path", "timezone"}.issubset(config):
         raise ValueError("Incomplete deployment configuration")
     for field in ["vault_path", "state_path", "basic_memory_config_dir"]:
@@ -194,7 +196,7 @@ def scoped_path(root, relative):
     return resolved
 
 
-def validate_note(content, note_id):
+def validate_note(content, note_id, scope="personal"):
     safe_text(content, 100000)
     if not content.startswith("---\n"):
         raise ValueError("Invalid note frontmatter")
@@ -229,7 +231,7 @@ def validate_note(content, note_id):
     for key in ["created_at", "updated_at"]:
         if datetime.fromisoformat(str(metadata[key])).tzinfo is None:
             raise ValueError("Timestamps require timezone")
-    if metadata.get("scope") != "personal" or metadata.get("id") != note_id:
+    if scope not in SCOPES or metadata.get("scope") != scope or metadata.get("id") != note_id:
         raise ValueError("Note metadata does not match deployment")
     note_metadata(metadata)
     return content
@@ -237,11 +239,22 @@ def validate_note(content, note_id):
 
 class Brain:
     def __init__(self, config):
-        if config.get("scope") != "personal":
-            raise ValueError("Work deployment is disabled")
+        if config.get("scope") not in SCOPES:
+            raise ValueError("Unsupported deployment scope")
+        if not {"vault_path", "state_path", "timezone"}.issubset(config):
+            raise ValueError("Incomplete deployment configuration")
         self.config = config
+        self.scope = config["scope"]
         self.vault = canonical_root(config["vault_path"])
         self.state = canonical_root(config["state_path"])
+        if self.scope == "work":
+            provider = config.get("basic_memory_config_dir")
+            if provider and not canonical_root(provider).is_relative_to(
+                self.state / "basic-memory"
+            ):
+                raise ValueError("Work provider must use state/basic-memory")
+            self.vault, self.state = initialize_work(self.vault, self.state)
+        check_store(self.scope, self.vault, self.state)
         self.ledger_path = scoped_path(self.state, "ledger.json")
         if self.ledger_path.exists() and not self.vault.is_dir():
             raise ValueError("Existing deployment vault is unavailable; inspect paths")
@@ -267,6 +280,7 @@ class Brain:
         return scoped_path(self.vault, relative)
 
     def ledger(self):
+        check_store(self.scope, self.vault, self.state)
         if self.ledger_path.exists():
             return json.loads(self.ledger_path.read_text(encoding="utf-8"))
         return {"events": {}, "notes": {}}
@@ -278,7 +292,7 @@ class Brain:
         if note_id not in ledger["notes"]:
             raise ValueError("Unknown note ID")
         content = self.path(ledger["notes"][note_id]).read_text(encoding="utf-8")
-        return validate_note(content, note_id)
+        return validate_note(content, note_id, self.scope)
 
     def search(self, query, limit=5, filters=None, *, contextual=False):
         terms = safe_text(query, 300).lower().split()
@@ -357,7 +371,7 @@ class Brain:
         return sorted(results, key=lambda item: (-item["score"], item["id"]))[:limit]
 
     def capture(self, candidate):
-        validate_candidate(candidate)
+        validate_candidate(candidate, self.scope)
         journal_only = candidate.get("mode", "note") == "journal-only"
         note_id = candidate.get("id", "")
         event_id = candidate["event_id"]
@@ -416,7 +430,7 @@ class Brain:
                     "id": note_id,
                     "title": title,
                     "type": kind,
-                    "scope": "personal",
+                    "scope": self.scope,
                     "status": status,
                     "created_at": created,
                     "updated_at": timestamp,
@@ -490,7 +504,7 @@ class Brain:
     def status(self):
         ledger = self.ledger()
         return {
-            "scope": "personal",
+            "scope": self.scope,
             "vault": str(self.vault),
             "notes": len(ledger["notes"]),
             "paused": (self.state / "paused").exists(),
@@ -498,6 +512,7 @@ class Brain:
         }
 
     def pause(self, enabled):
+        check_store(self.scope, self.vault, self.state)
         with self.lock:
             if enabled:
                 atomic_write(self.state / "paused", "paused\n")

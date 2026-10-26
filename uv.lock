@@ -3796,12 +3796,13 @@ wheels = [
 
 [[package]]
 name = "second-brain"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { editable = "." }
 dependencies = [
     { name = "basic-memory" },
     { name = "filelock" },
     { name = "markdown-it-py" },
+    { name = "packaging" },
     { name = "pyyaml" },
     { name = "tzdata" },
 ]
@@ -3817,6 +3818,7 @@ requires-dist = [
     { name = "basic-memory", specifier = "==0.23.2" },
     { name = "filelock", specifier = "==4.1.0" },
     { name = "markdown-it-py", specifier = "==4.2.0" },
+    { name = "packaging", specifier = "==26.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==9.1.1" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.17.0" },

@@ -67,7 +67,7 @@ def diagnose(config_path):
         ]
         config = json.loads(raw.decode("utf-8-sig"))
         if (
-            config.get("scope") != "personal"
+            config.get("scope") not in {"personal", "work"}
             or config.get("schema_version") != 1
             or not {"vault_path", "state_path"}.issubset(config)
         ):

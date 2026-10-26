@@ -25,7 +25,9 @@ brain context 'tema que has importado'
 `export-memory` es un nombre explícito para la copia completa existente (`backup`); devuelve
 `status: backed-up`. No necesita Tailscale, otra cuenta ni servicio de red. Puedes importar
 también una copia anterior compatible creada con `backup`. Mantén la carpeta completa, incluido
-`manifest.json`; no es una importación de Markdown arbitrario. Solo se admite ámbito personal.
+`manifest.json`; no es una importación de Markdown arbitrario. Origen y destino deben tener
+el mismo ámbito: personal o trabajo. No se permite importar entre ambos, incluidas las
+copias de anotaciones.
 La exportación no cambia la instalación ni sustituye un destino existente.
 
 ## Qué se añade y qué se conserva

@@ -13,6 +13,13 @@ class ProviderUnavailable(RuntimeError):
     """A controlled diagnostic code, without provider output or private paths."""
 
 
+def project_name(config):
+    scope = config.get("scope", "personal")
+    if scope not in {"personal", "work"}:
+        raise ProviderUnavailable("invalid-configuration")
+    return f"second-brain-{scope}"
+
+
 def executable():
     return Path(sys.executable).with_name("basic-memory.exe" if os.name == "nt" else "basic-memory")
 
@@ -49,9 +56,9 @@ def validate_config(config):
         if settings.stat().st_size > 100000:
             raise ValueError("Oversized provider configuration")
         projects = json.loads(settings.read_text(encoding="utf-8-sig"))["projects"]
-        entry = projects["second-brain-personal"]
+        entry = projects[project_name(config)]
         if (
-            set(projects) != {"second-brain-personal"}
+            set(projects) != {project_name(config)}
             or entry.get("mode", "local") != "local"
             or Path(entry["path"]).resolve() != Path(config["vault_path"]).resolve()
         ):
@@ -69,7 +76,7 @@ async def probe_provider(config):
             str(executable()),
             "status",
             "--project",
-            "second-brain-personal",
+            project_name(config),
             "--json",
             "--local",
             env=process_environment(config),
@@ -129,7 +136,7 @@ async def provider_search(config, query):
         "reindex",
         "--search",
         "--project",
-        "second-brain-personal",
+        project_name(config),
         env=process_environment(config),
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
@@ -147,7 +154,7 @@ async def provider_search(config, query):
         "mcpServers": {
             "memory": {
                 "command": command,
-                "args": ["mcp", "--project", "second-brain-personal"],
+                "args": ["mcp", "--project", project_name(config)],
                 "env": env,
             }
         }
@@ -157,7 +164,7 @@ async def provider_search(config, query):
             "search_notes",
             {
                 "query": query,
-                "project": "second-brain-personal",
+                "project": project_name(config),
                 "page_size": 5,
                 "search_type": "text",
                 "output_format": "json",

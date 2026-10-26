@@ -132,6 +132,8 @@ class Catalog:
         return row
 
     def snapshot(self, kind=None, source=None):
+        if self.brain.scope == "work":
+            self.brain.ledger()  # Verify work identity before reading even journal collections.
         if kind is not None and kind not in KINDS:
             raise ValueError("Invalid catalog kind")
         if source is not None and (not isinstance(source, str) or not SLUG.fullmatch(source)):
@@ -146,7 +148,7 @@ class Catalog:
             )
         ):
             raise ValueError("Invalid documentation roots configuration")
-        if source is not None and source not in {"personal", *roots}:
+        if source is not None and source not in {self.brain.scope, *roots}:
             raise ValueError("Unknown catalog source")
         rows, errors = [], []
         collections = set()
@@ -215,39 +217,39 @@ class Catalog:
                     continue
                 for relative in files(root, root, "documentation", name):
                     append(root, relative, "documentation", name)
-        if source in (None, "personal"):
+        if source in (None, self.brain.scope):
             if kind in (None, "note"):
-                collections.add(("note", "personal"))
+                collections.add(("note", self.brain.scope))
                 try:
                     notes = self.brain.ledger()["notes"]
                     if not isinstance(notes, dict):
                         raise ValueError("Invalid notes registry")
                     registered_notes = len(notes)
                     for note_id, relative in sorted(notes.items()):
-                        if not reserve("note", "personal"):
+                        if not reserve("note", self.brain.scope):
                             break
                         parts = Path(relative).parts if isinstance(relative, str) else ()
                         if not parts or parts[0] not in TYPES.values():
-                            error("note", "personal", "invalid-content")
+                            error("note", self.brain.scope, "invalid-content")
                             continue
-                        append(self.brain.vault, relative, "note", "personal", note_id)
+                        append(self.brain.vault, relative, "note", self.brain.scope, note_id)
                 except (OSError, ValueError, KeyError, TypeError):
-                    error("note", "personal", "unavailable")
+                    error("note", self.brain.scope, "unavailable")
             if kind in (None, "journal"):
-                collections.add(("journal", "personal"))
+                collections.add(("journal", self.brain.scope))
                 try:
                     root = self.brain.path("journal")
                     if root.exists():
-                        for relative in files(root, root, "journal", "personal"):
+                        for relative in files(root, root, "journal", self.brain.scope):
                             try:
                                 day = date.fromisoformat(relative.stem)
                             except ValueError:
                                 continue
                             if relative.as_posix() != f"{day.year}/{day.isoformat()}.md":
                                 continue
-                            append(root, relative, "journal", "personal")
+                            append(root, relative, "journal", self.brain.scope)
                 except (OSError, ValueError):
-                    error("journal", "personal", "unavailable")
+                    error("journal", self.brain.scope, "unavailable")
         rows.sort(key=lambda row: (row["kind"], row["source"], row["path"]))
         diagnostics = catalog_diagnostics(rows, errors, truncated, collections, registered_notes)
         try:

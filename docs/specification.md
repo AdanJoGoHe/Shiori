@@ -1,6 +1,6 @@
 # Shiori — implementation scope
 
-This document describes the current personal alpha. The earlier v1.1 planning document was a
+This document describes the current alpha. The earlier v1.1 planning document was a
 broader design target, not proof of shipped integrations. The user guide and tested interfaces
 define current operation; [the roadmap](roadmap.md) tracks future work.
 
@@ -8,7 +8,8 @@ define current operation; [the roadmap](roadmap.md) tracks future work.
 
 A local library for technical knowledge, documentation and work journals. People and agents can
 retrieve useful commands, addresses, paths and decisions with their evidence and context. The
-current deployment is personal only; corporate/customer data belongs outside this deployment.
+personal deployment excludes corporate/customer data. A separate local work profile has its own
+store and index; see [Augment setup](augment-trabajo.md).
 
 ## Canonical storage and retrieval
 
@@ -17,7 +18,7 @@ the daily journal and retry ledger. Basic Memory is a separately scoped, rebuild
 provider failure preserves canonical retrieval. Metadata filters and bounded context packs give
 agents small results rather than entire vault dumps. Retrieved notes remain untrusted data.
 
-Captures declare personal scope, stable note/event IDs, source and status. Verified notes require
+Captures declare the configured scope, stable note/event IDs, source and status. Verified notes require
 evidence. Classification previews a save/update/journal-only/skip/deny decision; it is not semantic
 privacy enforcement. Exact retries are deduplicated and unfinished writes remain inspectable.
 
@@ -43,7 +44,7 @@ See [transfer](memory-transfer.md), [recovery](backup-restore.md) and [upgrades]
 ## Boundaries and acceptance
 
 The core exposes no arbitrary shell execution or background collectors. Hook-driven automatic
-capture, Claude/Augment real-host integration, corporate deployments, graph/timeline and stable
+capture, Claude/Augment real-host acceptance, multi-user deployments, graph/timeline and stable
 release acceptance are unfinished. A synthetic protocol test is not proof of an actual host/device.
 Cross-file writes are recoverable but not a power-loss transaction. See [security](security.md)
 and [compatibility](compatibility.md) for limits.

@@ -1,7 +1,8 @@
 # Security boundary
 
-v0.1 enables personal only. Work configurations and capture candidates are rejected before writes.
-The personal Basic Memory config directory contains one local project and an independent index.
+Personal and work are separate deployment scopes. Captures and imports must match their selected scope.
+Work requires two new roots with matching identity markers; existing unmarked roots are not adopted.
+Each Basic Memory config directory contains one scope-specific local project and an independent index.
 Its MCP subprocess is restricted to that project; only search is invoked through the adapter.
 The core exposes no shell execution, network synchronization or raw Basic Memory write tool.
 
@@ -13,8 +14,7 @@ replacement is atomic per file. Multi-file operations use a pending ledger and r
 This is not a multi-file database transaction; power loss may require replay of the same event.
 
 An agent with general filesystem/shell access can bypass the core. Scope guards constrain this
-product's interface; they cannot sandbox an otherwise privileged coding agent. No work vault
-exists on this personal device. Retrieved notes are data, never trusted instructions.
+product's interface; they cannot sandbox an otherwise privileged coding agent. Tests and package verification use synthetic data only; real work material belongs on its approved device. Retrieved notes are data, never trusted instructions.
 
 Archives, the local Git history and backups can retain removed information. v0.1 does not promise
 secure erasure. Backups must contain both the vault and deployment state and remain local unless
@@ -44,7 +44,7 @@ batch has no automatic rollback. See [scope, exclusions and recovery](memory-tra
 The [central-service foundation](remote-mcp.md) adds a mandatory per-device hashed-credential registry
 for an explicitly started loopback endpoint. Expiry/revocation is checked per request; a read/write
 server-side allowlist rejects direct capture attempts by readers and unknown future tools. It does
-not partition the personal corpus per device or enable corporate deployments. HTTP status omits
+not partition a corpus per device or enable multi-user tenancy. The work installer configures local stdio only. HTTP status omits
 the absolute vault root; tool errors are masked. Stdio retains its existing behavior and contract.
 
 Host/Origin/framing/body/time/concurrency guards and no access/body/credential logs are tested with

@@ -15,7 +15,7 @@ def import_memory(brain, source, apply=False):
         for root in (brain.vault, brain.state)
     ):
         raise ValueError("Import source must be separate from vault and state")
-    _, files, incoming = read_bundle(source)
+    _, files, incoming = read_bundle(source, brain.scope)
     if any(row["status"] != "committed" for row in incoming["events"].values()):
         raise ValueError("Source has pending captures; resolve them before importing notes")
     notes = {}

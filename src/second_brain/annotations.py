@@ -207,16 +207,20 @@ def decode(raw):
     if not isinstance(data, dict):
         raise ValueError("Invalid annotation export")
     schema = data.get("schema_version")
-    if type(schema) is not int or schema not in {1, 2, 3}:
+    if type(schema) is not int or schema not in {1, 2, 3, 4}:
         raise ValueError("Unsupported annotation schema")
     fields = {"schema_version", "items"} | ({"categories"} if schema >= 2 else set())
+    if schema == 4:
+        fields.add("scope")
+        if data.get("scope") != "work":
+            raise ValueError("Unsupported annotation scope")
     if set(data) != fields:
         raise ValueError("Invalid annotation export")
     items = data["items"]
     if not isinstance(items, list) or len(items) > MAX_ITEMS:
         raise ValueError("Too many annotations")
     for item in items:
-        validate(item, metadata=schema == 3)
+        validate(item, metadata=schema >= 3)
     if len({item["id"] for item in items}) != len(items):
         raise ValueError("Duplicate annotation IDs")
     if schema == 1:
@@ -254,16 +258,27 @@ class Annotations:
         self.lock = FileLock(scoped_path(brain.state, "annotations.lock"), timeout=5)
 
     def _read(self):
+        self.brain.ledger()
         path = scoped_path(self.brain.state, "annotations.json")
         if not path.exists():
-            return {"schema_version": 3, "items": [], "categories": default_categories()}
+            data = {"schema_version": 3, "items": [], "categories": default_categories()}
+            if self.brain.scope == "work":
+                data.update(schema_version=4, scope="work")
+            return data
         if path.stat().st_size > MAX_BYTES:
             raise ValueError("Annotation store exceeds size limit")
-        return decode(path.read_text(encoding="utf-8"))
+        return self._decode(path.read_text(encoding="utf-8"))
+
+    def _decode(self, raw):
+        data = decode(raw)
+        if data.get("scope", "personal") != self.brain.scope:
+            raise ValueError("Annotation scope does not match deployment")
+        return data
 
     def _write(self, data, previous):
+        self.brain.ledger()
         raw = json.dumps(data, ensure_ascii=False, indent=2)
-        decode(raw)
+        self._decode(raw)
         if previous is not None:
             current = scoped_path(self.brain.state, "annotations.json")
             atomic_write(
@@ -319,7 +334,7 @@ class Annotations:
         return row
 
     def restore(self, raw):
-        data = decode(raw)
+        data = self._decode(raw)
         with self.lock:
             try:
                 previous = self._read()

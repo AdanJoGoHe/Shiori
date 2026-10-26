@@ -10,8 +10,8 @@ def classify_capture(brain, candidate, assessment):
     def result(decision, reason, **extra):
         return {"decision": decision, "reason": reason, **extra}
 
-    if not isinstance(candidate, dict) or candidate.get("scope") != "personal":
-        return result("deny", "personal-scope-required")
+    if not isinstance(candidate, dict) or candidate.get("scope") != brain.scope:
+        return result("deny", f"{brain.scope}-scope-required")
     try:
         safe_text(json.dumps(candidate, ensure_ascii=False), 30000)
     except (ValueError, TypeError):
@@ -25,8 +25,9 @@ def classify_capture(brain, candidate, assessment):
         or assessment["evidence_kind"] not in ("observed", "source", "user-confirmed", "none")
     ):
         return result("deny", "invalid-assessment")
-    if assessment["material"] != "personal":
-        return result("deny", "non-personal-or-unknown-material")
+    material = "personal" if brain.scope == "personal" else "corporate"
+    if assessment["material"] != material:
+        return result("deny", f"non-{material}-or-unknown-material")
     if not assessment["reusable"] and not assessment["meaningful"]:
         return result("skip", "no-reusable-insight-or-meaningful-progress")
     prepared = dict(candidate)
@@ -46,7 +47,7 @@ def classify_capture(brain, candidate, assessment):
         prepared["status"] = "unverified"
         warnings.append("verification-not-established")
     try:
-        validate_candidate(prepared)
+        validate_candidate(prepared, brain.scope)
     except (ValueError, TypeError):
         return result("deny", "invalid-capture-fields")
     if (brain.state / "paused").exists():

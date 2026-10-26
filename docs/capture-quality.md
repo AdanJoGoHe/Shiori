@@ -11,6 +11,11 @@ conversations or inferred personal preferences to this deployment, including to 
 Privacy declarations are agent assertions: the classifier cannot recognize all sensitive prose
 or independently validate a cited source/test. A regex secret check is an additional safeguard.
 
+The example below is for the personal deployment. A separate work deployment requires
+`scope: work` and assessment material `corporate`, with content allowed by its organization.
+Customer/unknown material is rejected in both profiles. Personal and work material must not
+cross deployments; see [work setup](augment-trabajo.md).
+
 The request has exactly `candidate` and `assessment` fields. Candidate uses the existing capture
 schema. Assessment requires all four fields, with no extras:
 
@@ -39,7 +44,7 @@ user intent; the classifier does not infer it from prose.
 
 | Priority | Condition | Decision |
 |---|---|---|
-| 1 | Non-personal scope; unsafe/oversized input; invalid assessment; material not explicitly personal | deny |
+| 1 | Scope differs from deployment; unsafe/oversized input; invalid assessment; material differs from the profile (personal or corporate) | deny |
 | 2 | Neither reusable nor meaningful | skip |
 | 3 | Reusable verified note without declared evidence kind or nonempty evidence | Prepare as unverified; warn; continue validation |
 | 4 | Not reusable, or explicitly journal-only | Prepare only the six journal fields; require an explicit summary |

@@ -1,2 +1,6 @@
-# Augment — disabled work integration
-No company deployment or data exists here. v0.1 rejects work scope. Portable future integration uses the shared schema/skill but requires a separately approved work implementation, device and Basic Memory config/index. Verify JetBrains-specific MCP/skill/hooks support against the installed plugin; CLI settings are not IDE evidence. Synthetic core scope-rejection tests do not prove real Augment isolation.
+# Augment — separate work memory
+
+Use the [work installation guide](../../docs/augment-trabajo.md) for the versioned local runtime,
+stable MCP command and packaged shiori-work skill. All repository fixtures are synthetic.
+Actual JetBrains/plugin tool and skill discovery must be checked on the target device; local
+MCP protocol tests do not establish real IDE acceptance. Personal memory is never a fallback.

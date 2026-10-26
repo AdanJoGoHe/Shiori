@@ -50,6 +50,8 @@ def deployment_config(config_path):
     from second_brain.paths import diagnose
 
     config = load_config(config_path)
+    if config["scope"] != "personal":
+        raise ValueError("This integration manages personal scope only")
     report = diagnose(config_path)
     if any(
         report.get("roots", {}).get(field, {}).get("code")
@@ -239,6 +241,8 @@ def _upgrade(config_path, state, apply):
 
 def uninstall(config_path):
     config = load_config(config_path)
+    if config["scope"] != "personal":
+        raise ValueError("This integration manages personal scope only")
     manifest_path = Path(config["state_path"]) / "install-manifest.json"
     if not manifest_path.exists():
         return {"status": "not installed"}

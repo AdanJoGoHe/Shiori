@@ -71,7 +71,8 @@ Para proteger o mover tus notas:
 ## Cómo va el proyecto
 
 Shiori está en alpha y, por ahora, se centra en el uso personal con Codex.
-Claude y Augment todavía no están probados. La conexión remota entre equipos tiene una
+Hay un [perfil separado para Augment en el trabajo](docs/augment-trabajo.md), con instalación
+y actualizaciones manuales por versión. La aceptación real en Claude y Augment sigue pendiente. La conexión remota entre equipos tiene una
 base implementada, pero aún falta probar el despliegue completo. [Más sobre el servidor opcional](docs/remote-mcp.md).
 
 El código es público. La memoria personal se queda fuera del repositorio.

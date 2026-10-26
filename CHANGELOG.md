@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0a2 — unreleased (planned tag v0.1.0-alpha.2)
+
+- Separate work scope with paired store identity, isolated provider, scope-aware retrieval,
+  classification and backup/restore/import. Preserve personal host installation boundaries.
+- Manual local-wheel installation, stable launcher, per-version environments, recovery snapshots,
+  managed-session guard and compatibility-checked rollback. No background updater.
+- Packaged Augment work skill, owned setup, Windows bootstrap and work/update guide.
+
 ## 0.1.0a1 — 2026-10-17 (Git tag v0.1.0-alpha.1)
 
 - Distinct empty/filter/no-read/partial/scan-limit viewer states with accessible retry and safe

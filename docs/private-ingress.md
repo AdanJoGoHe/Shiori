@@ -104,7 +104,7 @@ Haz la captura de aceptación con datos sintéticos y confirma su recuperación 
 segundo cliente. La instalación remota de Codex es #79 y la aceptación física es #80.
 
 Comprueba que `/`, `/viewer` y `/admin` no ofrecen interfaz/documentos y que no hay proxy
-hacia 8793/8787. Un Host diferente debe fallar (421/403). POST de más de64KB falla con413;
+hacia otros servicios locales. Un Host diferente debe fallar (421/403). POST de más de64KB falla con413;
 el backend conserva el límite de10s para recibir el cuerpo y16 conexiones. El timeout del
 cliente limita su espera; no cancela necesariamente una operación ya autorizada. Las
 pruebas locales de TLS no verifican los límites de handshake/entrada del daemon Tailscale.

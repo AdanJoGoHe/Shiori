@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "second-brain"
+version = "0.1.0a1"
+description = "Your notes, commands and things you have learned, ready when you need them."
+requires-python = ">=3.12"
+dependencies = ["PyYAML==6.0.3", "filelock==4.1.0", "tzdata==2026.5", "basic-memory==0.23.2", "markdown-it-py==4.2.0"]
+
+[project.urls]
+Source = "https://github.com/AdanJoGoHe/Shiori"
+Issues = "https://github.com/AdanJoGoHe/Shiori/issues"
+Documentation = "https://github.com/AdanJoGoHe/Shiori/blob/main/docs/guia-de-usuario.md"
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1", "ruff==0.17.0"]
+
+[project.scripts]
+shiori = "second_brain.cli:main"
+second-brain = "second_brain.cli:main"
+
+[tool.hatch.build.targets.wheel.force-include]
+"skills/second-brain/SKILL.md" = "second_brain/resources/second-brain/SKILL.md"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+

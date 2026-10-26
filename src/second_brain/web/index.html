@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Shiori: vuelve a lo que aprendiste. Tu biblioteca personal de documentación, comandos y conocimiento."><title>Shiori · Biblioteca</title><script src="theme.js"></script><link rel="stylesheet" href="style.css"><script src="highlights.js" defer></script><script src="app.js" defer></script></head>
+<body>
+<a class="skip" href="#search">Ir a la búsqueda</a>
+<aside class="sidebar">
+  <div class="brand"><svg class="brand-mark" viewBox="0 0 32 36" fill="none" aria-hidden="true" focusable="false"><path d="M7 3h13l5 5v25l-9-6-9 6V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M20 3v6h5M12 14h8M12 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><span class="brand-name">Shiori</span><small>Tu biblioteca personal</small></div></div>
+  <p class="eyebrow">COLECCIONES</p>
+  <nav aria-label="Colecciones">
+    <button class="collection active" data-kind="" aria-pressed="true">Todo el contenido</button>
+    <button class="collection" data-kind="documentation" aria-pressed="false">Documentación</button>
+    <button class="collection" data-kind="note" aria-pressed="false">Conocimiento</button>
+    <button class="collection" data-kind="journal" aria-pressed="false">Diario</button>
+  </nav>
+  <label class="theme-picker">Tema<select id="theme"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="latte">Café Latte</option></select></label>
+  <div class="sidebar-foot"><span class="local-dot" aria-hidden="true"></span> Local · Fuentes de solo lectura<p>Los archivos siguen siendo<br>la fuente de verdad.</p></div>
+</aside>
+<main>
+  <header class="masthead"><div><p class="eyebrow">Vuelve a lo que aprendiste.</p><h1>Biblioteca</h1><p class="subtitle">Documentación, conocimiento y avances, en un mismo lugar.</p></div><button id="refresh" class="quiet">Actualizar</button></header>
+  <section class="toolbar" aria-label="Búsqueda y filtros">
+    <div class="fragment-controls">
+      <label>Buscar en<select id="view"><option value="documents">Documentos</option><option value="fragments">Fragmentos marcados</option></select></label>
+      <label id="fragment-color-wrap" hidden>Color de la marca<select id="fragment-color"><option value="">Todos los colores</option><option value="yellow">Amarillo</option><option value="green">Verde</option><option value="blue">Azul</option><option value="pink">Rosa</option><option value="orange">Naranja</option><option value="violet">Violeta</option></select></label>
+    </div>
+    <div id="fragment-filters" hidden><p>Comandos, IPs y rutas marcadas, con contexto y copia directa.</p><div id="fragment-categories" aria-label="Filtrar por categorías de fragmentos"></div><details><summary>Cómo se combinan los filtros</summary><p>Categorías y etiquetas seleccionadas se combinan con Y; los términos buscan en el fragmento y los nombres de sus categorías. Las fechas y el orden «Más reciente» corresponden al documento.</p></details></div>
+    <p id="copy-message" role="status" aria-live="polite"></p>
+    <label class="search-label" for="search">Buscar en el contenido</label>
+    <div class="search-row"><input id="search" type="search" placeholder="Un tema, una decisión, un comando…" autocomplete="off"><button id="clear" class="quiet">Limpiar filtros</button></div>
+    <div class="basic-filters"><label>Origen<select id="source"><option value="">Todos los orígenes</option></select></label><label>Proyecto<select id="project"><option value="">Todos los proyectos</option></select></label><label>Orden<select id="sort"><option value="relevance">Relevancia</option><option value="updated">Más reciente</option><option value="title">Título</option></select></label><details><summary>Más filtros</summary><div class="extra-filters"><label>Tipo<select id="type"><option value="">Todos los tipos</option></select></label><label>Estado<select id="status"><option value="">Todos los estados</option></select></label><label>Agente<select id="source_agent"><option value="">Todos los agentes</option></select></label><label>Desde<input type="date" id="from"></label><label>Hasta<input type="date" id="to"></label></div></details></div>
+    <div class="tag-row"><span class="eyebrow">ETIQUETAS DEL DOCUMENTO</span><div id="tags" aria-label="Filtrar por etiquetas"></div></div>
+  </section>
+  <details id="category-manager" class="category-manager">
+    <summary>Etiquetas de fragmentos</summary>
+    <p>Clasifica textos concretos con categorías propias, separadas de las etiquetas de documentos. Archivar conserva las marcas existentes.</p>
+    <p>El color del fragmento se elige al marcarlo; cambiar una categoría no recolorea las marcas guardadas.</p>
+    <button id="category-refresh" class="quiet" type="button">Actualizar categorías</button>
+    <p id="category-message" role="status" aria-live="polite"></p>
+    <div id="category-list"></div>
+    <form id="category-form">
+      <h2 id="category-form-title">Nueva categoría</h2>
+      <label>Nombre<input id="category-name" maxlength="100" required autocomplete="off"></label>
+      <label>Color<select id="category-color"><option value="yellow">Amarillo</option><option value="green">Verde</option><option value="blue">Azul</option><option value="pink">Rosa</option><option value="orange">Naranja</option><option value="violet">Violeta</option></select></label>
+      <div><button id="category-save" type="submit">Crear categoría</button><button id="category-cancel" class="quiet" type="button" hidden>Cancelar edición</button></div>
+    </form>
+  </details>
+  <div id="warning" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+  <section class="workspace">
+    <div class="results-panel"><div class="results-heading"><h2 id="collection-title">Todo el contenido</h2><span id="count" aria-live="polite">Cargando…</span></div><div id="results" aria-busy="true"></div><div class="paging"><button id="prev" class="quiet" disabled>Anterior</button><span id="page"></span><button id="next" class="quiet" disabled>Siguiente</button></div></div>
+    <section class="reader" aria-label="Lector de documentos"><div id="reader-empty"><span class="empty-symbol" aria-hidden="true">Aa</span><h2>Un espacio para leer.</h2><p>Abre un documento de la lista para consultar<br>su contenido, contexto y referencias.</p></div><div id="reader-content" hidden><button id="back" class="quiet">← Volver a resultados</button><p class="eyebrow" id="reader-source"></p><h2 id="reader-title" tabindex="-1"></h2><div id="reader-meta"></div><details id="toc-wrap"><summary>En este documento</summary><nav id="toc" aria-label="Índice del documento"></nav></details><section id="marks-panel" hidden>
+      <div class="mark-toolbar"><button id="mark-selection" type="button">Marcar selección</button><button id="mark-reload" type="button" class="quiet">Recargar marcas</button><span id="mark-count"></span><small id="mark-selection-hint">Selecciona texto dentro del documento.</small></div>
+      <article id="reader-body"></article>
+      <p id="mark-message" role="status" aria-live="polite"></p><button id="mark-cancel-relink" class="quiet" type="button" hidden>Cancelar reparación</button>
+      <details class="mark-lookup"><summary>Texto exacto para marcar (teclado o pantalla táctil)</summary><label>Pega o escribe el fragmento<textarea id="mark-exact" rows="2" maxlength="8000"></textarea></label><button id="mark-find" type="button" class="quiet">Preparar siguiente coincidencia</button></details>
+      <form id="mark-form" hidden>
+        <h3 id="mark-form-title">Nueva marca</h3><blockquote id="mark-quote"></blockquote><p id="mark-context"></p>
+        <label>Título breve (opcional)<input id="mark-title" maxlength="240" autocomplete="off" placeholder="Por ejemplo: Ver qué proceso ocupa un puerto"></label>
+        <label>Para qué sirve (opcional)<textarea id="mark-description" rows="3" maxlength="2000" placeholder="Cuándo usarlo o qué aprendiste"></textarea></label>
+        <div id="mark-selection-fields">
+        <label>Color de la marca<select id="mark-color"><option value="yellow">Amarillo</option><option value="green">Verde</option><option value="blue">Azul</option><option value="pink">Rosa</option><option value="orange">Naranja</option><option value="violet">Violeta</option></select></label>
+        <fieldset><legend>Etiquetas del fragmento (opcionales)</legend><div id="mark-tags"></div></fieldset>
+        </div>
+        <button type="submit">Guardar marca</button><button id="mark-cancel" class="quiet" type="button">Cancelar marca</button>
+      </form>
+      <details open class="saved-marks"><summary>Marcas guardadas</summary><p>En superposiciones se ve el color de la marca más reciente; todas siguen disponibles aquí. Deshacer recupera la última eliminación y deja de estar disponible al cambiar de documento, recargar o reiniciar la sesión.</p><button id="mark-undo" class="quiet" type="button" disabled>Deshacer eliminación</button><div id="mark-list"></div></details>
+    </section><section id="related-wrap" hidden><h3>Notas relacionadas</h3><div id="related"></div></section></div></section>
+  </section>
+  <footer>Shiori <span>Markdown · Local · Personal</span></footer>
+</main>
+</body></html>

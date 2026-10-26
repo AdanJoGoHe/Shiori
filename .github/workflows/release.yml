@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish after validation (false creates a draft)
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/validate.yml
+    with:
+      platform: windows
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.12.15'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          prune-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run --locked python scripts/check-local.py
+      - run: uv build
+      - name: Prepare audited artifacts and version-derived tag
+        id: bundle
+        run: uv run --locked python scripts/prepare-release.py --github-output "$GITHUB_OUTPUT"
+      - name: Verify the exact release wheel
+        env:
+          WHEEL: ${{ steps.bundle.outputs.wheel }}
+          CONSTRAINTS: ${{ steps.bundle.outputs.constraints }}
+        run: |
+          uv venv .release-env --python 3.12
+          uv pip install --python .release-env --constraint "dist/$CONSTRAINTS" "dist/$WHEEL"
+          .release-env/bin/python scripts/verify-release.py
+      - name: Create draft with exactly four release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.bundle.outputs.tag }}
+          WHEEL: ${{ steps.bundle.outputs.wheel }}
+          SDIST: ${{ steps.bundle.outputs.sdist }}
+          CONSTRAINTS: ${{ steps.bundle.outputs.constraints }}
+          NOTES: ${{ steps.bundle.outputs.notes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite it."
+            exit 1
+          fi
+          if gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag already exists; review it manually instead of replacing it."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            "dist/$WHEEL" "dist/$SDIST" "dist/$CONSTRAINTS" dist/SHA256SUMS \
+            --target "$GITHUB_SHA" --title "Shiori $RELEASE_TAG" \
+            --notes-file "$NOTES" --draft --prerelease
+      - name: Publish only when explicitly selected
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.bundle.outputs.tag }}
+        run: gh release edit "$RELEASE_TAG" --draft=false --prerelease

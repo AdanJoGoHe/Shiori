@@ -1,0 +1,22 @@
+name: Bug Report
+description: Report a scoped Shiori task using synthetic evidence.
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Problem and goal
+      description: Include environment and expected behavior; omit private notes and secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Scope and acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation and dependencies
+    validations:
+      required: true

@@ -1,0 +1,2 @@
+# Augment — disabled work integration
+No company deployment or data exists here. v0.1 rejects work scope. Portable future integration uses the shared schema/skill but requires a separately approved work implementation, device and Basic Memory config/index. Verify JetBrains-specific MCP/skill/hooks support against the installed plugin; CLI settings are not IDE evidence. Synthetic core scope-rejection tests do not prove real Augment isolation.

@@ -1,0 +1,13 @@
+# Keep this path registered and disabled in GitHub to suppress old-branch triggers.
+name: Retired CI
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  retired:
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - run: echo "Use scripts/check-local.py or explicitly authorized Exceptional validation."

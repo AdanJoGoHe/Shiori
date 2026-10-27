@@ -176,6 +176,39 @@ def main():
                 assert blocked.returncode == 1 and "Close all managed" in blocked.stderr
 
     asyncio.run(stdio())
+    assert cli("run", "learn", "guide")["scope"] == "work"
+    proposal = {
+        "scope": "work",
+        "id": "synthetic-workflow",
+        "source_id": candidate["id"],
+        "project": "synthetic",
+        "description": "Synthetic Git workflow for package verification",
+        "instructions": "1. Run git --version.\n2. Inspect the observed version.",
+        "change": "correction",
+        "capabilities": ["read", "run-commands"],
+    }
+    proposal_file = temporary / "synthetic-proposal.json"
+    proposal_file.write_text(json.dumps(proposal), encoding="utf-8")
+    assert cli("run", "learn", "propose", "--request-file", str(proposal_file), "--apply")[
+        "applied"
+    ]
+    activation = cli(
+        "run",
+        "learn",
+        "activate",
+        "--id",
+        proposal["id"],
+        "--host",
+        "augment",
+        "--skills-dir",
+        str(skills),
+        "--apply",
+    )
+    assert activation["applied"] and Path(activation["paths"][0]).is_file()
+    assert (
+        cli("run", "learn", "check", "--id", proposal["id"], "--expect-revision", "1")["status"]
+        == "ready"
+    )
     before = cli("run", "read", candidate["id"])
     launchers = {name: (root / name).read_bytes() for name in ["shiori.py", "shiori.cmd"]}
     original_config = (root / "data/config.json").read_bytes()
@@ -284,6 +317,7 @@ def main():
                     "scope-rejection",
                     "owned-skill",
                     "real-isolated-provider",
+                    "managed-learning-proposal-activation",
                 ],
                 "two_version_update_rollback": bool(args.next_release_dir),
                 "online_metadata": "synthetic" if args.simulate_online else "not-used",

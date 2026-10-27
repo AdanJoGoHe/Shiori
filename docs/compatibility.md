@@ -61,3 +61,17 @@ failure. Wheel and constraints paths are passed as encoded file URIs.
 
 These are local synthetic update/recovery checks, not an upgrade between two published releases
 or acceptance of the actual Augment IDE. Release files remain drafts until explicitly published.
+
+## Hybrid learned workflows — 2026-10-27
+
+461 source tests passed (one native symlink privilege skip). The 50 learning tests also passed
+against the installed alpha.4 wheel, including both scopes, both export host names, read-only
+previews, stale revisions, broader capabilities, foreign/edited files, interrupted activation,
+bounded targets and explicit archival. Both base skills passed frontmatter validation.
+
+The installed personal verifier passed; the work verifier passed PowerShell installation,
+eight stdio tools, real isolated Basic Memory search/status and actual managed-CLI proposal,
+activation and revision checks with fictitious content. Generated host files were placed only
+in synthetic private directories. The research uses pinned upstream source; no external plugin
+was installed/executed, no extra runtime model process or hooks were installed, and no real
+corporate material was used. Application-level skill selection remains unvalidated.

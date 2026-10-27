@@ -53,3 +53,15 @@ Retain the exact candidate JSON until saved/duplicate. Identical event retries a
 changed payloads require a new event ID. A pending-note result requires retrying its original JSON
 first. `list_pending_captures` lists identifiers, not original bodies: never reconstruct a payload
 from an excerpt. Report only returned outcomes; capture failure does not block the main task.
+
+After verifying a reusable multi-step workflow, run `learn guide` through this installation's
+configured CLI (`shiori.cmd run learn guide` for the managed work runtime). Save a curated
+proposal with `learn propose --apply`; it stays a private draft until activation. Search
+`learn list` and update the same workflow ID. Review new skills, broader behavior, new
+capabilities or changed sources/projects with the owner before `learn activate --apply`.
+An approved correction may use `learn refresh --apply` only on unchanged owned destinations.
+These are reviewed assertions, not semantic permission detection. Keep source notes verified
+and current; keep private skill files outside Git. Use only this work deployment, with no
+personal fallback. Skip transcripts, raw logs and trivial outcomes. Archive deliberately
+obsolete/superseded workflows; missing usage records do not establish obsolescence.
+Use the current session for this pass; do not start another model process or bypass permissions.

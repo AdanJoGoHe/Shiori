@@ -67,6 +67,7 @@ Para proteger o mover tus notas:
 - [Copias y restauración](docs/backup-restore.md).
 - [Exportar e importar notas](docs/memory-transfer.md), añadiendo las nuevas sin reemplazar las tuyas.
 - [Actualizar una instalación](docs/actualizacion.md).
+- [Aprender procedimientos y convertirlos en skills](docs/learning.md).
 
 ## Cómo va el proyecto
 

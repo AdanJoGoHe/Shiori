@@ -100,6 +100,17 @@ historical copies in archives/backups. Never edit vault files or the ledger to b
 
 Local config: `%LOCALAPPDATA%\SecondBrain\personal\config.json`. This instance supports personal scope only. Hook-driven capture and Claude/Augment host validation are pending; instruction-driven capture is best effort.
 
+After verifying a reusable multi-step workflow, use the configured Shiori CLI and explicit
+personal config to run `learn guide`. Save a curated proposal with `learn propose --apply`;
+this creates a private draft, not an active skill. Search `learn list` and reuse its ID when
+correcting the same workflow. Review new skills, broader behavior, new capabilities or changed
+sources/projects with the owner before `learn activate --apply`. An approved correction may
+use `learn refresh --apply` on unchanged owned destinations. Classification is a reviewed
+assertion; it does not infer permissions. Source notes must remain verified and current.
+Skip trivial outcomes, chat transcripts and raw logs. Keep learned skill files outside Git.
+Never retire a skill just because usage was not recorded; archive only deliberate obsolete or
+superseded workflows. This learning pass uses the current session, not another model process.
+
 For visual browsing preparation, `list_content` (or CLI `catalog`) lists read-only metadata by
 kind: documentation, note or journal. Documentation sources come only from trusted local
 `documentation_roots` configuration; requests select source IDs, never arbitrary paths. Use

@@ -381,6 +381,7 @@ def run(root, arguments):
         "backup",
         "export-memory",
         "import-memory",
+        "learn",
     }:
         raise ValueError("Choose a supported Shiori command after run")
     if any(arg == "--config" or arg.startswith("--config=") for arg in arguments):

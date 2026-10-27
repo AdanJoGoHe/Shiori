@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "second-brain"
-version = "0.1.0a3"
+version = "0.1.0a4"
 description = "Your notes, commands and things you have learned, ready when you need them."
 requires-python = ">=3.12"
 dependencies = ["PyYAML==6.0.3", "filelock==4.1.0", "tzdata==2026.5", "basic-memory==0.23.2", "markdown-it-py==4.2.0", "packaging==26.3"]

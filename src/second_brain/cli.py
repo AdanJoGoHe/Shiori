@@ -95,6 +95,28 @@ def main():
     export.add_argument("--output", type=Path, required=True)
     restore = sub.add_parser("annotations-restore", help="Restore a validated annotation export")
     restore.add_argument("--input", type=Path, required=True)
+    learn = sub.add_parser(
+        "learn", help="Propose and maintain reviewed skills from canonical memory"
+    )
+    learning = learn.add_subparsers(dest="learning_action", required=True)
+    proposal = learning.add_parser("propose")
+    proposal.add_argument("--request-file", type=Path, required=True)
+    proposal.add_argument(
+        "--apply", action="store_true", help="Save a private proposal; does not activate it"
+    )
+    learning.add_parser("list")
+    learning.add_parser("guide")
+    for name in ["show", "check", "activate", "refresh", "archive"]:
+        action = learning.add_parser(name)
+        action.add_argument("--id", required=True)
+        if name == "check":
+            action.add_argument("--expect-deployment")
+            action.add_argument("--expect-revision", type=int)
+        if name in {"activate", "refresh", "archive"}:
+            action.add_argument("--apply", action="store_true")
+        if name == "activate":
+            action.add_argument("--host", choices=["codex", "augment"], required=True)
+            action.add_argument("--skills-dir", type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.command == "doctor" and args.catalog:
@@ -166,7 +188,47 @@ def main():
 
             serve(config)
             return
-        if args.command in {"backup", "export-memory"}:
+        if args.command == "learn":
+            from second_brain.learning import Learning
+
+            learner = Learning(brain)
+            if args.learning_action == "guide":
+                result = learner.guide()
+            elif args.learning_action == "propose":
+                if args.request_file.stat().st_size > 12000:
+                    raise ValueError("Learning request exceeds 12 KB")
+                result = learner.propose(
+                    json.loads(args.request_file.read_text(encoding="utf-8-sig")), args.apply
+                )
+            elif args.learning_action == "list":
+                result = {
+                    "scope": brain.scope,
+                    "items": [
+                        {
+                            key: row[key]
+                            for key in ["id", "project", "description", "revision", "archived"]
+                        }
+                        for row in learner.rows()
+                    ],
+                }
+            elif args.learning_action == "show":
+                result = learner.read(args.id)
+            elif args.learning_action == "check":
+                result = learner.check(args.id, args.expect_deployment, args.expect_revision)
+                if result["status"] != "ready":
+                    print(json.dumps(result))
+                    raise SystemExit(1)
+            elif args.learning_action == "archive":
+                result = learner.archive(args.id, args.apply)
+            else:
+                result = learner.export(
+                    args.id,
+                    getattr(args, "host", None),
+                    getattr(args, "skills_dir", None),
+                    apply=args.apply,
+                    refresh=args.learning_action == "refresh",
+                )
+        elif args.command in {"backup", "export-memory"}:
             from second_brain.backup import backup
 
             result = backup(brain, args.output)

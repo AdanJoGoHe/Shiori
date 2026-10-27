@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0a4 — unreleased (planned tag v0.1.0-alpha.4)
+
+- Research AutoHarness against pinned primary source and adapt its proposal/publication split
+  to curated Shiori notes, without transcript collection or additional model processes.
+- Hybrid learning CLI: private proposals, reviewed activation, bounded corrections of owned
+  skills, current-source/revision checks, private history and explicit archival.
+- Personal and work skills guide the same lifecycle; preserve scopes, reject foreign/edited
+  targets and require review when sources, projects or declared capabilities change.
+- Host compatibility and recovery limits are documented; no hooks installed or host acceptance claimed.
+
 ## 0.1.0a3 — unreleased (planned tag v0.1.0-alpha.3)
 
 - Online updater: read-only published-release checks, explicit prerelease opt-in, bounded

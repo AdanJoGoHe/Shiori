@@ -25,6 +25,7 @@ TYPES = {
 }
 STATUSES = {"verified", "unverified", "superseded", "obsolete", "draft"}
 AGENTS = {"codex", "claude-code", "augment-jetbrains", "manual"}
+PROGRESS_FIELDS = ("completed", "checks", "decisions", "blockers", "next_steps")
 SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,99}\Z")
 SECRET = re.compile(
     r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
@@ -105,8 +106,10 @@ def validate_candidate(candidate, scope="personal"):
         "title",
         "source_agent",
         "summary",
+        "project",
+        "progress",
     }:
-        raise ValueError("Journal-only captures accept only scope/mode/event/title/agent/summary")
+        raise ValueError("Unsupported journal-only fields")
     note_id = candidate.get("id", "")
     event_id = candidate.get("event_id", "")
     safe_text(note_id, 100)
@@ -130,6 +133,20 @@ def validate_candidate(candidate, scope="personal"):
         raise ValueError("Title/body required; verified notes require evidence")
     # Scan every supplied field, including identifiers and optional metadata.
     safe_text(json.dumps(candidate, ensure_ascii=False), 30000)
+    progress = candidate.get("progress", {})
+    if not isinstance(progress, dict) or set(progress) - set(PROGRESS_FIELDS):
+        raise ValueError("Invalid progress fields")
+    for items in progress.values():
+        if not isinstance(items, list) or len(items) > 8:
+            raise ValueError("Progress fields accept at most eight strings")
+        for item in items:
+            if not safe_text(item, 500).strip():
+                raise ValueError("Empty progress item")
+    for text in [title, summary, *[item for items in progress.values() for item in items]]:
+        if "<!-- event:" in text or "<!-- shiori-project:" in text:
+            raise ValueError("Reserved journal marker in text")
+    if journal_only:
+        note_metadata({"project": candidate.get("project")})
     if not journal_only:
         note_metadata(candidate)
 
@@ -417,6 +434,7 @@ class Brain:
             journal_relative = f"journal/{moment:%Y}/{moment:%Y-%m-%d}.md"
             journal_path = self.path(journal_relative)
             relative = journal_relative
+            project = candidate.get("project")
             if not journal_only:
                 relative = ledger["notes"].get(note_id, f"{TYPES[kind]}/{note_id}.md")
                 note_path = self.path(relative)
@@ -442,6 +460,7 @@ class Brain:
                     "sensitivity": "normal",
                 }
                 metadata.update(note_metadata(candidate, prior_metadata))
+                project = metadata["project"]
                 content = "---\n" + yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False)
                 content += (
                     f"---\n\n# {title}\n\n{body}\n\n## Evidence\n{evidence or 'Not verified'}\n"
@@ -468,10 +487,18 @@ class Brain:
             )
             marker = f"<!-- event:{event_id} -->"
             if marker not in journal:
-                journal += f"\n{marker}\n## {moment:%H:%M} — {title}\n\n"
+                journal += f"\n{marker}\n<!-- shiori-project:{project or ''} -->\n"
+                journal += f"## {moment:%H:%M} — {title}\n\n"
                 journal += f"- Agent: {agent}\n- Outcome: {summary}\n"
                 if not journal_only:
                     journal += f"- Knowledge: [[{note_id}]]\n"
+                for field in PROGRESS_FIELDS:
+                    items = candidate.get("progress", {}).get(field, [])
+                    if items:
+                        journal += f"\n### {field.replace('_', ' ').title()}\n"
+                        journal += "".join(
+                            "- " + item.strip().replace("\n", "\n  ") + "\n" for item in items
+                        )
                 atomic_write(journal_path, journal)
             if not journal_only:
                 ledger["notes"][note_id] = relative

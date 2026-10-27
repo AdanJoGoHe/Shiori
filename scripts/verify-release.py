@@ -141,6 +141,7 @@ def main():
         == candidate["id"]
     )
     assert cli("pending")["total"] == 0
+    assert cli("journal", "--project", "release-test")["total"] == 1
     # Model a persisted lexical alias; repair must preserve the selected store and prior bytes.
     lexical = dict(config)
     for field in ["vault_path", "state_path"]:
@@ -225,7 +226,10 @@ def main():
                 "classify_memory",
                 "list_pending_captures",
                 "list_content",
+                "read_journal",
             }
+            diary = await client.call_tool("read_journal", {"project": "release-test"})
+            assert diary.data["scope"] == "personal" and diary.data["total"] >= 1
             observation = await client.call_tool("memory_status", {})
             assert observation.data["index"]["status"] == "not-checked"
             active = await client.call_tool("memory_status", {"check_provider": True})
@@ -367,7 +371,7 @@ def main():
                     "install-uninstall-preserves-settings",
                     "owned-upgrade-preview-apply-retry",
                     "cli-capture-context-dedupe",
-                    "stdio-eight-tools",
+                    "stdio-nine-tools",
                     "real-basic-memory-indexed-search",
                     "explicit-cli-mcp-provider-status",
                     "scope-secret-denial",

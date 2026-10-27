@@ -85,7 +85,7 @@ requiere resolver la diferencia manualmente.
 ## Primera comprobación en el IDE
 
 Abre una conversación nueva y pide consultar `memory_status`: debe devolver `scope: work`.
-Comprueba que aparecen las ocho herramientas. Con un ejemplo ficticio, consulta contexto,
+Comprueba que aparecen las nueve herramientas. Con un ejemplo ficticio, consulta contexto,
 clasifica una captura y guarda un comando con `scope: work` y `source_agent: augment-jetbrains`.
 Léelo por su ID, reinicia la conexión y confirma que sigue disponible. Una captura `personal`
 debe fallar. Estas comprobaciones requieren tu IDE; las pruebas de protocolo locales no las sustituyen.

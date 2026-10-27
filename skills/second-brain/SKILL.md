@@ -57,10 +57,25 @@ For meaningful progress without a reusable lesson, capture only a journal entry:
 }
 ```
 
-Use only these six fields in journal-only mode. It creates no canonical note or knowledge link,
-so it is absent from note search. Note capture remains the default when mode is omitted.
-If a running host's capture_memory documentation lacks journal-only support, use the CLI fallback
-for that mode; a fresh server process loads updated code. Skip trivial interactions in either mode.
+These six fields remain sufficient. Either capture mode may also include `project` (slug/null)
+and `progress`: an object with optional `completed`, `checks`, `decisions`, `blockers`,
+`next_steps` lists (at most eight nonempty strings of 500 characters per list). Record concrete
+results and actual checks, unresolved failures and the next useful action; omit unknown sections.
+Journal-only creates no canonical note or knowledge link, so it is absent from note search.
+When the running server lacks these fields, use its configured updated CLI or the six-field
+summary format. Do not silently select another deployment.
+
+Keep a daily trail at meaningful checkpoints and before a handoff or task switch. Use one capture
+with progress when saving a lesson too; avoid a second entry for the same outcome. No need to ask
+for each permitted capture. Skip trivial actions and raw transcripts. Report observed results;
+mark plans and unresolved checks as pending rather than completed. Do not invent time spent.
+When resuming a project, call `read_journal(project=...)` for recent progress alongside canonical
+context. Dates use YYYY-MM-DD, inclusive, at most 31 days; default last seven local days.
+Page with next_offset and inspect errors/content_truncated. CLI: `journal --project project-id`.
+If the tool is absent, use the configured updated CLI; otherwise report retrieval unavailable.
+For a requested daily/weekly recap, summarize those entries with dates/references and distinguish
+results, checks and pending actions. Past blockers/next steps are historical: recheck them before
+claiming current status. Instruction-driven capture is best effort, not a background recorder.
 
 The core appends the daily journal and keeps prior note revisions for note captures. Avoid editing vault files directly, which bypasses validation and the ledger. Repeat an identical event ID only when retrying the same payload. A changed payload requires a new event ID.
 

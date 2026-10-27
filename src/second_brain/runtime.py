@@ -371,6 +371,7 @@ def run(root, arguments):
         "doctor",
         "search",
         "context",
+        "journal",
         "read",
         "capture",
         "classify",

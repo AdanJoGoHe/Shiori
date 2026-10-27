@@ -128,7 +128,7 @@ def main():
             }
         }
         async with Client(transport) as client:
-            assert len(await client.list_tools()) == 8
+            assert len(await client.list_tools()) == 9
             result = await client.call_tool("memory_status", {})
             assert result.data["scope"] == "work"
             result = await client.call_tool(
@@ -152,6 +152,9 @@ def main():
                 "capture_memory", {"candidate": dict(candidate, scope="personal")}
             )
             assert result.data["status"] == "failed"
+            diary = await client.call_tool("read_journal", {"project": "synthetic"})
+            assert diary.data["scope"] == "work" and diary.data["total"] == 1
+            assert cli("run", "journal", "--project", "synthetic")["total"] == 1
             result = await client.call_tool("search_memory", {"query": "git"})
             assert result.data["provider"] == "basic-memory", result.data
             assert result.data["notes"][0]["id"] == candidate["id"]
@@ -313,7 +316,7 @@ def main():
                 "checks": [
                     "package-install",
                     "stable-launcher",
-                    "stdio-eight-tools",
+                    "stdio-nine-tools",
                     "scope-rejection",
                     "owned-skill",
                     "real-isolated-provider",

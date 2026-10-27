@@ -239,6 +239,7 @@ la CLI mientras reconectas.
 | Guardar nota/diario | `capture_memory` | `brain capture --event-file 'evento.json'` |
 | Consultar pendientes | `list_pending_captures` | `brain pending` |
 | Enumerar contenido | `list_content` | `brain catalog --kind note` |
+| Retomar avances | `read_journal` | `brain journal --project ejemplo` |
 | Consultar estado | `memory_status` | `brain status` |
 
 Copias, restauración, pausa y administración del host se hacen por CLI. No hay una herramienta
@@ -340,7 +341,7 @@ Clasificar no guarda ni reserva nada; depende de declaraciones revisadas, no ver
 por su cuenta. Una propuesta `verified` sin evidencia declarada pasa a `unverified`; un borrador
 no se promociona automáticamente.
 
-Para un avance sin nota permanente, guarda como `avance.json` estos **seis campos únicamente**:
+Para un avance sin nota permanente, guarda como `avance.json` estos seis campos básicos:
 
 ```json
 {
@@ -356,7 +357,12 @@ Para un avance sin nota permanente, guarda como `avance.json` estos **seis campo
 ```powershell
 brain capture --event-file '.\avance.json'
 brain catalog --kind journal
+brain journal --project tutorial
 ```
+
+Puedes añadir `project` y `progress` con resultados, comprobaciones, decisiones, bloqueos y
+próximos pasos. La [guía del diario y los resúmenes](diario.md) explica el formato y cómo consultar
+un día o una semana desde MCP o CLI. El filtro por proyecto requiere haberlo guardado en el avance.
 
 El diario no aparece en la búsqueda de notas. Para una corrección, conserva `id` y cambia
 `event_id`, por ejemplo a `tutorial-nota-002`, junto con contenido/evidencia reales. Para un

@@ -38,6 +38,7 @@ require all requested values. Project is a hard filter, not a guessed repository
 MCP project=null selects unassigned notes. Scope/path parameters are not accepted. Default context
 excludes obsolete/superseded notes; explicit status filters allow intentional historical inspection.
 Journal progress, annotations and documentation are not included as canonical facts in this increment.
+Daily progress has its own bounded `read_journal`/CLI `journal` query; see [the diary guide](diario.md).
 
 Ranking uses literal query-term coverage across title/ID/tags/project/body (excluding frontmatter
 boilerplate), then verified status, presence of an evidence section, newest update and ID. Empty

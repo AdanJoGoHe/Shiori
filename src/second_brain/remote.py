@@ -23,6 +23,7 @@ READ_TOOLS = frozenset(
         "search_memory",
         "get_context",
         "read_memory",
+        "read_journal",
         "classify_memory",
         "list_content",
         "list_pending_captures",

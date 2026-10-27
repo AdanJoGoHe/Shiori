@@ -37,7 +37,15 @@ def classify_capture(brain, candidate, assessment):
     if not assessment["reusable"] or candidate.get("mode") == "journal-only":
         prepared = {
             key: candidate[key]
-            for key in ("scope", "event_id", "title", "source_agent", "summary")
+            for key in (
+                "scope",
+                "event_id",
+                "title",
+                "source_agent",
+                "summary",
+                "project",
+                "progress",
+            )
             if key in candidate
         }
         prepared["mode"] = "journal-only"

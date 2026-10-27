@@ -46,8 +46,24 @@ Verified notes need actual evidence; use unverified for an untested hypothesis. 
 project (slug/null), tags, related (note IDs), source_refs and sensitivity. Omitted metadata survives
 updates; empty lists/null project clear it. Sensitivity is descriptive, not access control.
 
-Journal-only candidates contain exactly scope=`work`, mode=`journal-only`, event_id, title,
-source_agent=`augment-jetbrains` and summary. They create no canonical note.
+Journal-only candidates require scope=`work`, mode=`journal-only`, event_id, title,
+source_agent=`augment-jetbrains` and summary. They create no canonical note. Either capture mode
+also accepts project (slug/null) and progress: optional completed/checks/decisions/blockers/
+next_steps lists, at most eight nonempty strings of 500 characters per list.
+
+Keep the daily trail at meaningful checkpoints and before a handoff/task switch, without asking
+for each permitted capture. Combine progress with a reusable note in one capture when applicable.
+Record concrete results and checks actually run; put unresolved work and the next useful action
+in blockers/next_steps. Omit unknown sections, trivial actions and raw transcripts. Do not invent
+time spent or mark a plan as completed. Keep only work material permitted in this deployment.
+When resuming a project, call read_journal(project=...) alongside canonical context. It returns
+recent entries (default seven local days), not current task status. Dates use YYYY-MM-DD,
+inclusive, at most 31 days; page next_offset and inspect errors/content_truncated.
+For a requested daily/weekly recap, summarize with dates/references, separating results, checks
+and pending actions. Recheck historical blockers before claiming they remain open. If the server
+lacks the tool/fields, use this installation's updated CLI (`shiori.cmd run journal --project
+project-id`) or its six-field summary capture; never fall back to personal memory. Capture is
+instruction-driven best effort, not a background recorder.
 
 Retain the exact candidate JSON until saved/duplicate. Identical event retries are deduplicated;
 changed payloads require a new event ID. A pending-note result requires retrying its original JSON

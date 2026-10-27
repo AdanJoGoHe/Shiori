@@ -84,6 +84,12 @@ def main():
     pending = sub.add_parser("pending", help="List pending capture identifiers without bodies")
     pending.add_argument("--offset", type=int, default=0)
     pending.add_argument("--limit", type=int, default=25)
+    journal = sub.add_parser("journal", help="Read daily progress without changing memory")
+    journal.add_argument("--start-date")
+    journal.add_argument("--end-date")
+    journal.add_argument("--project")
+    journal.add_argument("--offset", type=int, default=0)
+    journal.add_argument("--max-chars", type=int, default=8000)
     catalog = sub.add_parser("catalog", help="List authorized read-only content metadata")
     catalog.add_argument("--kind", choices=["documentation", "note", "journal"])
     catalog.add_argument("--source")
@@ -284,6 +290,12 @@ def main():
             result = brain.read(args.id)
         elif args.command == "pending":
             result = brain.pending_captures(args.offset, args.limit)
+        elif args.command == "journal":
+            from second_brain.journal import read_journal
+
+            result = read_journal(
+                brain, args.start_date, args.end_date, args.project, args.offset, args.max_chars
+            )
         elif args.command == "catalog":
             result = Catalog(brain).list(args.kind, args.source, args.offset, args.limit)
         elif args.command in {"pause", "resume"}:
@@ -301,7 +313,11 @@ def main():
 
                     result["provider_check"] = asyncio.run(probe_provider(config))
         print(
-            json.dumps(result, ensure_ascii=False, indent=None if args.command == "context" else 2)
+            json.dumps(
+                result,
+                ensure_ascii=False,
+                indent=None if args.command in {"context", "journal"} else 2,
+            )
         )
         if args.command == "import-memory" and result["status"] == "blocked":
             raise SystemExit(1)

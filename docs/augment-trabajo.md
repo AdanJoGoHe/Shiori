@@ -21,7 +21,7 @@ En PowerShell, ajusta las dos rutas. La carpeta de instalación debe ser **nueva
 estar fuera de repositorios Git y de carpetas compartidas o sincronizadas.
 
 ```powershell
-$ReleaseDir = 'C:\Downloads\Shiori-alpha.3'
+$ReleaseDir = 'C:\Downloads\Shiori-release'
 $InstallDir = Join-Path $env:LOCALAPPDATA 'Shiori\work'
 
 # Revisar archivos y destino; no instala nada.

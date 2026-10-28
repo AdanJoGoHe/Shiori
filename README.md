@@ -20,6 +20,8 @@ Puedes buscar desde el navegador, la terminal o Codex.
 ## Empezar
 
 La [guía de instalación y uso](docs/guia-de-usuario.md) te lleva paso a paso.
+Los paquetes están en [Releases](https://github.com/AdanJoGoHe/Shiori/releases).
+Las versiones alpha aparecen como prerelease; revisa sus notas antes de instalar o actualizar.
 Por ahora, la instalación está pensada para Windows, PowerShell, Python 3.12 y Codex.
 
 Una vez instalado, estos comandos sirven para ver el estado, buscar y abrir la biblioteca:

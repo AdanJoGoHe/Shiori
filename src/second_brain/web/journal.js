@@ -199,6 +199,8 @@ window.JournalUI = (() => {
   }
   async function load(more = false, moreTasks = false) {
     const current = ++sequence;
+    document.querySelector(".journal-grid").inert = true;
+    id("journal-resume").disabled = true;
     id("journal-entries").setAttribute("aria-busy", "true");
     message("Leyendo diario…");
     id("journal-resume-result").hidden = true;
@@ -221,6 +223,7 @@ window.JournalUI = (() => {
       id("journal-from").value = feed.start_date; id("journal-to").value = feed.end_date;
       id("journal-dates").querySelector("summary").textContent = feed.start_date + " — " + feed.end_date;
       renderEntries(feed.total); renderTasks(board.task_total, board.active_total);
+      document.querySelector(".journal-grid").inert = false;
       message("Memoria " + (scope === "work" ? "de trabajo" : "personal") + ". " +
         (feed.error_count || board.error_count ? "Lectura incompleta: revisa el diario antes de actualizar pendientes." : "") +
         (board.truncated || feed.truncated ? " Se alcanzó un límite de lectura; carga más cuando esté disponible." : ""));

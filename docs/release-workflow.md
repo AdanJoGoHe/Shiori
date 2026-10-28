@@ -1,9 +1,9 @@
 # Manual release workflow
 
 `Release` is a manually dispatched GitHub Actions workflow. It has no push/tag trigger;
-adding or merging the workflow does not create a tag or a release. The original local publication
-was blocked by automatic permission review; this workflow is prepared for separate owner review
-and manual execution, not dispatched by the agent to retry that denied operation.
+adding or merging the workflow does not create a tag or a release. An original local publication
+attempt was blocked by automatic permission review; the workflow is not a way to retry a denied
+operation. A new publication needs the owner's current authorization and applicable access checks.
 
 Once reviewed/merged into main:
 
@@ -31,7 +31,7 @@ not delete, replace or clobber partial outputs. Skipped release jobs from non-ma
 mean a release was created. Publishing never runs unless validation and draft creation succeed.
 
 `scripts/prepare-release.py` makes no remote writes. It checks the version, required release notes,
-wheel metadata/canonical skill, source links and unsafe/private artifact directories; emits three
+wheel metadata/canonical skills, source links and unsafe/private artifact directories; emits four
 SHA-256 hashes and a fixed asset selection. This is a path/structure audit, not a general secret
 detector. Only synthetic fixtures belong in source. No vault, local configuration, logs or session
 artifacts are uploaded. Constraints come from the locked runtime dependencies.
@@ -54,3 +54,18 @@ that also prepares the actual release wheel. Each runner job has a15-minute time
 cache keyed by the lockfile/platform. Validation supersession cancels stale checks; release
 publication remains serialized without cancellation. Actions were not dispatched to test this
 policy; static/local checks do not establish hosted success or actual billing savings.
+
+## Local release without Actions
+
+With current owner authorization, a Windows alpha can also be prepared and published locally.
+Bump the package and lock versions, add matching release notes, run the source/policy/secret
+checks, build and run `scripts/prepare-release.py`. Test the exact installed wheel with both
+release verifiers and the diary browser workflow. `scripts/verify-release-upgrade.py` checks a
+real older bundle against the candidate, including notes, marks, skill refresh and rollback,
+using disposable memory only. It does not publish or update an existing deployment.
+
+Merge the reviewed release commit, create a draft targeting that exact commit and upload only
+the five allowlisted assets. Compare uploaded sizes/digests with the tested files before publishing
+as a prerelease. Keep older drafts/assets intact. Verify the public tag and anonymous downloads
+after publication. Report the platform actually tested; local Windows checks do not establish
+Linux or application-level Augment acceptance. This route does not dispatch the hosted workflow.

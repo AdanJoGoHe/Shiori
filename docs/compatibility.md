@@ -75,3 +75,20 @@ activation and revision checks with fictitious content. Generated host files wer
 in synthetic private directories. The research uses pinned upstream source; no external plugin
 was installed/executed, no extra runtime model process or hooks were installed, and no real
 corporate material was used. Application-level skill selection remains unvalidated.
+
+## Alpha.5 release checks — 2026-10-28
+
+Windows/Python 3.12.14: 517 source tests passed, with one native symlink privilege skip.
+The 56 diary/workflow tests also passed against the installed alpha.5 wheel. Both installed
+release verifiers passed: ten personal/work MCP tools, provider isolation, owned skills,
+CLI recovery and managed workflow learning. Chromium acceptance passed at 1440/768/390 with
+the three themes, including delayed project filters, stale task versions and inert captured text.
+
+`scripts/verify-release-upgrade.py` installed the original alpha.4 draft bundle downloaded from
+GitHub, with asset sizes/digests and bundle checksums verified, then updated to alpha.5. It checked
+active-session refusal, notes and marks, explicit owned-skill refresh for local-bundle updates,
+rollback without losing newer notes/journal entries, and reactivation with the recorded task state
+intact. Reusing an existing saved version uses rollback; update does not overwrite its environment.
+This uses two actual versioned packages, not an upgrade between two published releases: alpha.4
+was a draft. All memory and host files were disposable synthetic fixtures. No Linux, real Augment
+IDE/device acceptance or live personal-deployment upgrade is claimed, and no Actions were run.

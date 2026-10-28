@@ -16,7 +16,7 @@ async function main() {
   const project = page.locator('#journal-project');
   const api = async suffix => (await page.request.get(input.url+suffix)).json();
   async function selectProject(value) {
-    await project.fill(value); await project.dispatchEvent('change');
+    await project.fill(value); await project.press('Tab');
     await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
   }
   await page.goto(input.url);
@@ -29,6 +29,17 @@ async function main() {
   await page.locator('#journal-resume-result').waitFor({state:'visible'});
   assert.match(await page.locator('#journal-resume-result').innerText(), /Validar el lector/);
   check('project-filter-grouped-timeline-and-resume');
+  let releaseRequest;
+  const hold = new Promise(resolve => { releaseRequest = resolve; });
+  await page.route('**/api/journal?*',async route=>{await hold;await route.continue();});
+  await project.fill('otro-demo'); await project.press('Tab');
+  assert.equal(await page.locator('.journal-grid').evaluate(el=>el.inert),true);
+  await assert.rejects(page.locator('.journal-task[data-task-id="editor"] summary').first().click({timeout:200}),/Timeout/);
+  releaseRequest();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  await page.unroute('**/api/journal?*');
+  await selectProject('diario-demo');
+  check('loading-another-project-blocks-stale-task-actions');
   const task = page.locator('.journal-task[data-task-id="editor"]');
   await task.locator('summary').filter({hasText:'Cambiar estado'}).click();
   await task.locator('select').selectOption('done');

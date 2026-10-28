@@ -240,6 +240,7 @@ la CLI mientras reconectas.
 | Consultar pendientes | `list_pending_captures` | `brain pending` |
 | Enumerar contenido | `list_content` | `brain catalog --kind note` |
 | Retomar avances | `read_journal` | `brain journal --project ejemplo` |
+| Retomar un proyecto | `resume_project` | `brain project-resume ejemplo` |
 | Consultar estado | `memory_status` | `brain status` |
 
 Copias, restauración, pausa y administración del host se hacen por CLI. No hay una herramienta
@@ -363,6 +364,9 @@ brain journal --project tutorial
 Puedes añadir `project` y `progress` con resultados, comprobaciones, decisiones, bloqueos y
 próximos pasos. La [guía del diario y los resúmenes](diario.md) explica el formato y cómo consultar
 un día o una semana desde MCP o CLI. El filtro por proyecto requiere haberlo guardado en el avance.
+El visor incorpora una vista de diario por actividad y pendientes con historial. `resume_project`
+prioriza los pendientes y el último resultado; `read_journal(view="tasks", project="ejemplo")`
+consulta también los estados cerrados. Véase [seguimiento y reanudación](diario.md#verlo-y-mantener-los-pendientes).
 
 El diario no aparece en la búsqueda de notas. Para una corrección, conserva `id` y cambia
 `event_id`, por ejemplo a `tutorial-nota-002`, junto con contenido/evidencia reales. Para un

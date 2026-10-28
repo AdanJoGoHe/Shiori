@@ -24,6 +24,7 @@ READ_TOOLS = frozenset(
         "get_context",
         "read_memory",
         "read_journal",
+        "resume_project",
         "classify_memory",
         "list_content",
         "list_pending_captures",

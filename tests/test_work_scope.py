@@ -152,7 +152,7 @@ def test_work_mcp_tools_require_work_scope(tmp_path):
     async def scenario():
         async with Client(create_server(config(tmp_path))) as client:
             tools = await client.list_tools()
-            assert len(tools) == 9
+            assert len(tools) == 10
             result = await client.call_tool("memory_status", {})
             assert result.data["scope"] == "work"
             result = await client.call_tool("capture_memory", {"candidate": event()})

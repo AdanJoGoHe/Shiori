@@ -45,6 +45,10 @@ def classify_capture(brain, candidate, assessment):
                 "summary",
                 "project",
                 "progress",
+                "activity",
+                "supersedes",
+                "change_reason",
+                "tasks",
             )
             if key in candidate
         }
@@ -71,6 +75,14 @@ def classify_capture(brain, candidate, assessment):
             if previous["status"] == "committed":
                 return result("skip", "duplicate-event")
             warnings.append("pending-event-retry")
+        from second_brain.workflow import check_capture, JournalConflict
+
+        try:
+            unchanged = check_capture(brain, prepared, previous)
+        except JournalConflict:
+            return result("deny", "journal-history-or-version-conflict")
+        if unchanged:
+            return result("skip", "unchanged-activity")
         if prepared.get("mode") == "journal-only":
             return result(
                 "journal-only", "meaningful-progress", candidate=prepared, warnings=warnings

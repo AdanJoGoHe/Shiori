@@ -103,7 +103,7 @@ No sobrescribas la entrada gestionada actual para ensayar la fase remota.
 
 ## Permisos, revocación y límites
 
-- Consulta anuncia ocho herramientas: contexto, búsqueda, lectura, diario, clasificación, catálogo,
+- Consulta anuncia nueve herramientas: contexto, búsqueda, lectura, diario, retomar proyecto, clasificación, catálogo,
   pendientes y estado. Captura se anuncia solo a escritores. Llamarla directamente con credencial
   de lectura también se rechaza. Una herramienta futura queda denegada hasta revisión explícita.
 - Los permisos no aíslan documentos por equipo: cada lector ve la memoria personal autorizada

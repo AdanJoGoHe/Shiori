@@ -128,7 +128,7 @@ def main():
             }
         }
         async with Client(transport) as client:
-            assert len(await client.list_tools()) == 9
+            assert len(await client.list_tools()) == 10
             result = await client.call_tool("memory_status", {})
             assert result.data["scope"] == "work"
             result = await client.call_tool(
@@ -155,6 +155,33 @@ def main():
             diary = await client.call_tool("read_journal", {"project": "synthetic"})
             assert diary.data["scope"] == "work" and diary.data["total"] == 1
             assert cli("run", "journal", "--project", "synthetic")["total"] == 1
+            tracking = {
+                "scope": "work",
+                "mode": "journal-only",
+                "event_id": "synthetic-tracking",
+                "title": "Synthetic host follow-up",
+                "source_agent": "augment-jetbrains",
+                "project": "synthetic",
+                "summary": "Track a disposable validation step.",
+                "tasks": [
+                    {
+                        "id": "host-check",
+                        "title": "Validate the synthetic host",
+                        "status": "open",
+                        "details": "Disposable fixture",
+                        "version": 0,
+                    }
+                ],
+            }
+            saved = await client.call_tool("capture_memory", {"candidate": tracking})
+            assert saved.data["status"] == "saved"
+            resumed = await client.call_tool("resume_project", {"project": "synthetic"})
+            assert resumed.data["active_tasks"][0]["version"] == 1
+            assert cli("run", "project-resume", "synthetic")["active_total"] == 1
+            states = await client.call_tool(
+                "read_journal", {"project": "synthetic", "view": "tasks"}
+            )
+            assert states.data["tasks"][0]["history_total"] == 1
             result = await client.call_tool("search_memory", {"query": "git"})
             assert result.data["provider"] == "basic-memory", result.data
             assert result.data["notes"][0]["id"] == candidate["id"]
@@ -316,7 +343,7 @@ def main():
                 "checks": [
                     "package-install",
                     "stable-launcher",
-                    "stdio-nine-tools",
+                    "stdio-ten-tools",
                     "scope-rejection",
                     "owned-skill",
                     "real-isolated-provider",

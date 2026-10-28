@@ -90,6 +90,12 @@ def main():
     journal.add_argument("--project")
     journal.add_argument("--offset", type=int, default=0)
     journal.add_argument("--max-chars", type=int, default=8000)
+    journal.add_argument("--view", choices=["entries", "tasks"], default="entries")
+    project_resume = sub.add_parser(
+        "project-resume", help="Resume an exact project's recorded work"
+    )
+    project_resume.add_argument("project")
+    project_resume.add_argument("--max-chars", type=int, default=8000)
     catalog = sub.add_parser("catalog", help="List authorized read-only content metadata")
     catalog.add_argument("--kind", choices=["documentation", "note", "journal"])
     catalog.add_argument("--source")
@@ -294,8 +300,18 @@ def main():
             from second_brain.journal import read_journal
 
             result = read_journal(
-                brain, args.start_date, args.end_date, args.project, args.offset, args.max_chars
+                brain,
+                args.start_date,
+                args.end_date,
+                args.project,
+                args.offset,
+                args.max_chars,
+                args.view,
             )
+        elif args.command == "project-resume":
+            from second_brain.workflow import resume_project
+
+            result = resume_project(brain, args.project, args.max_chars)
         elif args.command == "catalog":
             result = Catalog(brain).list(args.kind, args.source, args.offset, args.limit)
         elif args.command in {"pause", "resume"}:
@@ -316,7 +332,7 @@ def main():
             json.dumps(
                 result,
                 ensure_ascii=False,
-                indent=None if args.command in {"context", "journal"} else 2,
+                indent=None if args.command in {"context", "journal", "project-resume"} else 2,
             )
         )
         if args.command == "import-memory" and result["status"] == "blocked":

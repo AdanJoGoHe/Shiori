@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Shiori: vuelve a lo que aprendiste. Tu biblioteca personal de documentación, comandos y conocimiento."><title>Shiori · Biblioteca</title><script src="theme.js"></script><link rel="stylesheet" href="style.css"><script src="highlights.js" defer></script><script src="app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Shiori: vuelve a lo que aprendiste. Tu biblioteca personal de documentación, comandos y conocimiento."><title>Shiori · Biblioteca</title><script src="theme.js"></script><link rel="stylesheet" href="style.css"><script src="highlights.js" defer></script><script src="journal.js" defer></script><script src="app.js" defer></script></head>
 <body>
 <a class="skip" href="#search">Ir a la búsqueda</a>
 <aside class="sidebar">
@@ -13,10 +13,29 @@
     <button class="collection" data-kind="journal" aria-pressed="false">Diario</button>
   </nav>
   <label class="theme-picker">Tema<select id="theme"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="latte">Café Latte</option></select></label>
-  <div class="sidebar-foot"><span class="local-dot" aria-hidden="true"></span> Local · Fuentes de solo lectura<p>Los archivos siguen siendo<br>la fuente de verdad.</p></div>
+  <div class="sidebar-foot"><span class="local-dot" aria-hidden="true"></span> Local · Archivos Markdown<p>Los archivos siguen siendo<br>la fuente de verdad.</p></div>
 </aside>
 <main>
   <header class="masthead"><div><p class="eyebrow">Vuelve a lo que aprendiste.</p><h1>Biblioteca</h1><p class="subtitle">Documentación, conocimiento y avances, en un mismo lugar.</p></div><button id="refresh" class="quiet">Actualizar</button></header>
+  <section id="journal-panel" hidden aria-label="Diario por proyecto">
+    <div class="journal-filters">
+      <label>Proyecto<input id="journal-project" list="journal-projects" maxlength="100" pattern="[a-z0-9][a-z0-9-]{0,99}" placeholder="Todos los proyectos" autocomplete="off"><datalist id="journal-projects"></datalist></label>
+      <details id="journal-dates"><summary>Periodo</summary><div class="journal-date-fields"><label>Desde<input id="journal-from" type="date"></label><label>Hasta<input id="journal-to" type="date"></label></div></details>
+      <button id="journal-resume" class="quiet" disabled>Retomar proyecto</button>
+    </div>
+    <p id="journal-message" role="status" aria-live="polite"></p>
+    <section id="journal-resume-result" class="journal-resume" hidden aria-label="Contexto para retomar"></section>
+    <div class="journal-mobile-tabs" role="group" aria-label="Sección del diario"><button type="button" data-journal-pane="feed" aria-pressed="true">Avances</button><button type="button" data-journal-pane="tasks" aria-pressed="false">Pendientes</button></div>
+    <div class="journal-grid">
+      <section class="journal-feed"><div class="journal-section-head"><h2>Avances</h2><span id="journal-count"></span></div><div id="journal-entries" aria-busy="false"></div><button id="journal-more" class="quiet" hidden>Más avances</button></section>
+      <section class="journal-tasks"><div class="journal-section-head"><h2>Pendientes con seguimiento</h2><span id="journal-task-count"></span></div>
+        <p class="journal-help">Pendientes de todo el historial del proyecto. El periodo filtra los avances; sus próximos pasos son sugerencias históricas.</p>
+        <label>Ver<select id="journal-task-filter"><option value="active">Abiertos y bloqueados</option><option value="all">Todos los estados</option></select></label>
+        <div id="journal-task-list"></div><button id="journal-tasks-more" class="quiet" hidden>Más pendientes</button>
+        <details id="journal-new-task"><summary>Nuevo pendiente</summary><form id="journal-task-form"><label>Título<input id="journal-task-title" maxlength="200" required></label><label>Contexto o siguiente acción<textarea id="journal-task-details" maxlength="500" rows="2"></textarea></label><button type="submit">Guardar pendiente</button><p>Selecciona un proyecto para guardarlo.</p></form></details>
+      </section>
+    </div>
+  </section>
   <section class="toolbar" aria-label="Búsqueda y filtros">
     <div class="fragment-controls">
       <label>Buscar en<select id="view"><option value="documents">Documentos</option><option value="fragments">Fragmentos marcados</option></select></label>

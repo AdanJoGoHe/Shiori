@@ -9,10 +9,152 @@ from second_brain.core import SLUG, safe_text
 MARKER = re.compile(r"^<!-- event:([a-z0-9][a-z0-9-]{0,99}) -->\n", re.MULTILINE)
 PROJECT = re.compile(r"<!-- shiori-project:([a-z0-9-]*) -->\n")
 MAX_DAY_BYTES = 2 * 1024 * 1024
+MAX_SCAN_BYTES = 16 * 1024 * 1024
+DATA = re.compile(r"<!-- shiori-data:(.+) -->\n")
 
 
-def read_journal(brain, start_date=None, end_date=None, project=None, offset=0, max_chars=8000):
+def load_entries(brain, days=None):
+    """Read one locked snapshot; sequence is ledger insertion order, including tied timestamps."""
+    from second_brain.core import validate_candidate
+
+    entries, errors = [], []
+    with brain.lock:
+        ledger = brain.ledger()
+        expected, sequences = {}, {}
+        for sequence, (event_id, event) in enumerate(ledger["events"].items()):
+            day = datetime.fromisoformat(event["at"]).date()
+            sequences[event_id] = sequence
+            if event["status"] == "committed":
+                expected.setdefault(day, set()).add(event_id)
+        selected = sorted(days if days is not None else expected, reverse=True)
+        consumed = 0
+        for day in selected[:2000]:
+            relative = f"journal/{day:%Y}/{day:%Y-%m-%d}.md"
+            try:
+                path = brain.path(relative)
+                if not path.exists():
+                    if expected.get(day):
+                        raise ValueError("Missing journal")
+                    continue
+                with path.open("rb") as stream:
+                    raw = stream.read(MAX_DAY_BYTES + 1)
+                consumed += len(raw)
+                if consumed > MAX_SCAN_BYTES or len(entries) > 5000:
+                    errors.append({"path": relative, "reason": "history-limit"})
+                    break
+                if len(raw) > MAX_DAY_BYTES:
+                    raise ValueError("Oversized journal")
+                content = safe_text(raw.decode("utf-8"), MAX_DAY_BYTES).replace("\r\n", "\n")
+                markers = list(MARKER.finditer(content))
+                ids = [match[1] for match in markers]
+                if not expected.get(day, set()).issubset(ids):
+                    raise ValueError("Missing journal entries")
+                if len(set(ids)) != len(ids) or (not markers and content.strip() != f"# {day}"):
+                    raise ValueError("Unrecognized journal format")
+                daily = []
+                for index, match in enumerate(markers):
+                    event = ledger["events"].get(match[1])
+                    if not event or datetime.fromisoformat(event["at"]).date() != day:
+                        raise ValueError("Untracked journal entry")
+                    if event["status"] != "committed":
+                        continue
+                    stop = markers[index + 1].start() if index + 1 < len(markers) else len(content)
+                    text = content[match.end() : stop].strip()
+                    metadata = PROJECT.match(text)
+                    project = (metadata[1] or None) if metadata else None
+                    text = text[metadata.end() :] if metadata else text
+                    structured = DATA.match(text)
+                    title = re.search(r"^## [^\n]*? — (.*)$", text, re.MULTILINE)
+                    summary = re.search(r"^- Outcome: (.*)$", text, re.MULTILINE)
+                    agent = re.search(r"^- Agent: ([a-z-]+)$", text, re.MULTILINE)
+                    progress = {}
+                    for field in ("completed", "checks", "decisions", "blockers", "next_steps"):
+                        label = field.replace("_", " ").title()
+                        section = re.search(
+                            rf"^### {label}\n(.*?)(?=^### |\Z)", text, re.MULTILINE | re.DOTALL
+                        )
+                        if section and not structured:
+                            values = []
+                            for line in section[1].splitlines():
+                                if line.startswith("- "):
+                                    values.append(line[2:])
+                                elif line.startswith("  ") and values:
+                                    values[-1] += "\n" + line[2:]
+                            if len(values) > 8 or any(len(value) > 500 for value in values):
+                                raise ValueError("Invalid legacy progress")
+                            progress[field] = values
+                    data = {
+                        "title": title[1] if title else "Historical entry",
+                        "summary": summary[1] if summary else "",
+                        "progress": progress,
+                        "tasks": [],
+                        "supersedes": [],
+                        "activity": None,
+                        "change_reason": "",
+                        "source_agent": agent[1] if agent else "manual",
+                    }
+                    if structured:
+                        data = json.loads(structured[1])
+                        if not isinstance(data, dict) or set(data) != {
+                            "title",
+                            "summary",
+                            "progress",
+                            "tasks",
+                            "supersedes",
+                            "activity",
+                            "change_reason",
+                            "source_agent",
+                        }:
+                            raise ValueError("Invalid structured journal")
+                        validate_candidate(
+                            dict(
+                                data,
+                                scope=brain.scope,
+                                mode="journal-only",
+                                event_id=match[1],
+                                project=project,
+                            ),
+                            brain.scope,
+                        )
+                        text = text[structured.end() :]
+                    elif "<!-- shiori-data:" in text:
+                        raise ValueError("Invalid structured journal marker")
+                    daily.append(
+                        {
+                            "event_id": match[1],
+                            "at": event["at"],
+                            "path": relative,
+                            "project": project,
+                            "content": text,
+                            "content_truncated": False,
+                            **data,
+                            "structured": bool(structured),
+                            "_sequence": sequences[match[1]],
+                        }
+                    )
+                if len(entries) + len(daily) > 5000:
+                    errors.append({"path": relative, "reason": "history-limit"})
+                    break
+                entries.extend(daily)
+            except (OSError, ValueError, UnicodeError, KeyError, TypeError):
+                errors.append({"path": relative, "reason": "journal-unavailable"})
+        if len(selected) > 2000:
+            errors.append({"reason": "history-limit"})
+    return entries, errors
+
+
+def read_journal(
+    brain, start_date=None, end_date=None, project=None, offset=0, max_chars=8000, view="entries"
+):
     """Read newest entries first; offsets page entries, not characters or days."""
+    if view == "tasks":
+        from second_brain.workflow import overview
+
+        if not project or start_date is not None or end_date is not None:
+            raise ValueError("Task state requires an exact project and no date filter")
+        return overview(brain, project, offset, max_chars)
+    if view != "entries":
+        raise ValueError("Journal view must be entries or tasks")
     if type(max_chars) is not int or not 1000 <= max_chars <= 20000:
         raise ValueError("Journal budget must be 1000–20000 characters")
     if type(offset) is not int or offset < 0:
@@ -48,60 +190,18 @@ def read_journal(brain, start_date=None, end_date=None, project=None, offset=0, 
         "truncated": False,
         "max_chars": max_chars,
     }
-    entries = []
-    with brain.lock:
-        ledger = brain.ledger()
-        expected = {}
-        for event_id, event in ledger["events"].items():
-            if event["status"] == "committed":
-                day = datetime.fromisoformat(event["at"]).date()
-                expected.setdefault(day, set()).add(event_id)
-        for delta in range((end - start).days + 1):
-            day = start + timedelta(days=delta)
-            relative = f"journal/{day:%Y}/{day:%Y-%m-%d}.md"
-            try:
-                path = brain.path(relative)
-                if not path.exists():
-                    if expected.get(day):
-                        raise ValueError("Missing journal")
-                    continue
-                with path.open("rb") as stream:
-                    raw = stream.read(MAX_DAY_BYTES + 1)
-                if len(raw) > MAX_DAY_BYTES:
-                    raise ValueError("Oversized journal")
-                content = safe_text(raw.decode("utf-8"), MAX_DAY_BYTES).replace("\r\n", "\n")
-                markers = list(MARKER.finditer(content))
-                ids = [match[1] for match in markers]
-                if not expected.get(day, set()).issubset(ids):
-                    raise ValueError("Missing journal entries")
-                if len(set(ids)) != len(ids) or (not markers and content.strip() != f"# {day}"):
-                    raise ValueError("Unrecognized journal format")
-                daily = []
-                for index, match in enumerate(markers):
-                    event = ledger["events"].get(match[1])
-                    if not event or datetime.fromisoformat(event["at"]).date() != day:
-                        raise ValueError("Untracked journal entry")
-                    if event["status"] != "committed":
-                        continue
-                    stop = markers[index + 1].start() if index + 1 < len(markers) else len(content)
-                    text = content[match.end() : stop].strip()
-                    metadata = PROJECT.match(text)
-                    entry_project = (metadata[1] or None) if metadata else None
-                    if project is not None and project != entry_project:
-                        continue
-                    daily.append(
-                        {
-                            "event_id": match[1],
-                            "at": event["at"],
-                            "path": relative,
-                            "project": entry_project,
-                            "content": text[metadata.end() :] if metadata else text,
-                            "content_truncated": False,
-                        }
-                    )
-                entries.extend(daily)
-            except (OSError, ValueError, UnicodeError, KeyError, TypeError):
-                result["errors"].append({"path": relative, "reason": "journal-unavailable"})
+    entries, result["errors"] = load_entries(
+        brain, [start + timedelta(days=delta) for delta in range((end - start).days + 1)]
+    )
+    # The compatibility endpoint returns verbatim text; structured state has its own query.
+    entries = [
+        {
+            key: item[key]
+            for key in ("event_id", "at", "path", "project", "content", "content_truncated")
+        }
+        for item in entries
+        if project is None or item["project"] == project
+    ]
     entries.sort(
         key=lambda item: (datetime.fromisoformat(item["at"]), item["event_id"]), reverse=True
     )

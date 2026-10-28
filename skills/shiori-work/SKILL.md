@@ -56,7 +56,10 @@ for each permitted capture. Combine progress with a reusable note in one capture
 Record concrete results and checks actually run; put unresolved work and the next useful action
 in blockers/next_steps. Omit unknown sections, trivial actions and raw transcripts. Do not invent
 time spent or mark a plan as completed. Keep only work material permitted in this deployment.
-When resuming a project, call read_journal(project=...) alongside canonical context. It returns
+When resuming a project, prefer resume_project(project=...) alongside canonical context; it returns
+recorded active tasks/current versions, latest effective result and historical suggestions.
+Inspect error_count/tasks_omitted/truncated and check the present environment before acting.
+Use read_journal(project=...) for the dated progress trail. It returns
 recent entries (default seven local days), not current task status. Dates use YYYY-MM-DD,
 inclusive, at most 31 days; page next_offset and inspect errors/content_truncated.
 For a requested daily/weekly recap, summarize with dates/references, separating results, checks
@@ -64,6 +67,20 @@ and pending actions. Recheck historical blockers before claiming they remain ope
 lacks the tool/fields, use this installation's updated CLI (`shiori.cmd run journal --project
 project-id`) or its six-field summary capture; never fall back to personal memory. Capture is
 instruction-driven best effort, not a background recorder.
+
+Reuse a project-local activity slug to group continuing work. Unchanged journal-only progress
+for the same activity/day is skipped. Correct an entry with supersedes (up to eight committed
+event IDs in that project) and change_reason; the original remains. Group deliberately, not from
+similar wording alone. A correction of text does not roll back task states.
+For actual tracked work, tasks accepts id (stable project-local slug), title, status
+(open/blocked/done/discarded), details and version. Create at version 0; retrieve the current version
+before updating, including reopening a closed task. read_journal(view="tasks", project=..., offset=...)
+pages all states/history. Use new event IDs for changes; retain exact JSON for retries. Resolve
+stale versions by rereading and reconciling the intended change, never overriding history/pending
+captures. Mark done only after observed completion. Tasks, activities and corrections require an
+explicit project. Managed CLI: shiori.cmd run project-resume project-id, or run journal --view tasks
+--project project-id. Check tool documentation for support; an old summary capture cannot substitute
+for a task update. Use the updated configured work CLI or report unavailable, with no personal fallback.
 
 Retain the exact candidate JSON until saved/duplicate. Identical event retries are deduplicated;
 changed payloads require a new event ID. A pending-note result requires retrying its original JSON

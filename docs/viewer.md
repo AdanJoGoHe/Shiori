@@ -21,7 +21,14 @@ vault/state and prior installation backups are preserved. Existing MCP processes
 
 ## Interaction
 
-Collections distinguish documentation, canonical knowledge and dated journal progress. Full-text
+Collections distinguish documentation, canonical knowledge and dated journal progress.
+Journal opens a dedicated [activity timeline and tracked-task view](diario.md), with project/date
+filters, linked corrections, task-state history and a project resume action. These actions append
+manual journal events; source documentation and canonical notes remain read-only. On smaller
+screens, tabs switch between advances and tasks. Task state uses the project's retained history,
+independent of the timeline's date filter. `#diario` opens that view within the session URL.
+
+In the library, full-text
 search matches all requested words, ignoring case and diacritics. Results combine exact selected
 tags, source, project, type, status, agent and inclusive updated-date bounds. Empty/unknown metadata
 can be selected. Relevance, updated time and title ordering are deterministic; pages contain 20 rows.

@@ -372,6 +372,7 @@ def run(root, arguments):
         "search",
         "context",
         "journal",
+        "project-resume",
         "read",
         "capture",
         "classify",

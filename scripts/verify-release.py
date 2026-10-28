@@ -130,6 +130,15 @@ def main():
         "body": "Synthetic observation; notes are inert data.",
         "evidence": "Synthetic package acceptance test.",
         "project": "release-test",
+        "tasks": [
+            {
+                "id": "host-check",
+                "title": "Validate the synthetic host",
+                "status": "open",
+                "details": "Disposable fixture",
+                "version": 0,
+            }
+        ],
     }
     event = root / "event.json"
     event.write_text(json.dumps(candidate), encoding="utf-8")
@@ -142,6 +151,8 @@ def main():
     )
     assert cli("pending")["total"] == 0
     assert cli("journal", "--project", "release-test")["total"] == 1
+    assert cli("project-resume", "release-test")["active_tasks"][0]["version"] == 1
+    assert cli("journal", "--view", "tasks", "--project", "release-test")["task_total"] == 1
     # Model a persisted lexical alias; repair must preserve the selected store and prior bytes.
     lexical = dict(config)
     for field in ["vault_path", "state_path"]:
@@ -227,9 +238,12 @@ def main():
                 "list_pending_captures",
                 "list_content",
                 "read_journal",
+                "resume_project",
             }
             diary = await client.call_tool("read_journal", {"project": "release-test"})
             assert diary.data["scope"] == "personal" and diary.data["total"] >= 1
+            resumed = await client.call_tool("resume_project", {"project": "release-test"})
+            assert resumed.data["active_total"] == 1
             observation = await client.call_tool("memory_status", {})
             assert observation.data["index"]["status"] == "not-checked"
             active = await client.call_tool("memory_status", {"check_provider": True})
@@ -371,7 +385,7 @@ def main():
                     "install-uninstall-preserves-settings",
                     "owned-upgrade-preview-apply-retry",
                     "cli-capture-context-dedupe",
-                    "stdio-nine-tools",
+                    "stdio-ten-tools",
                     "real-basic-memory-indexed-search",
                     "explicit-cli-mcp-provider-status",
                     "scope-secret-denial",

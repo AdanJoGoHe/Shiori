@@ -1018,3 +1018,51 @@ footer span {
 
 #fragment-categories .tag { font-size: 12px; min-height: 36px; }
 #fragment-filters details { margin-bottom: 12px; color: var(--muted); }
+
+/* Diary: feed 2fr + task rail 1fr + one 24px gutter; both share canvas edges. */
+.journal-active .masthead h1 {font-size:28px;letter-spacing:normal}
+.journal-filters {display:flex;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.journal-filters label {display:flex;flex-direction:column;gap:6px;min-width:180px}
+.journal-filters details {position:relative}
+.journal-filters summary {padding:10px 0;cursor:pointer}
+.journal-date-fields {display:flex;gap:16px;flex-wrap:wrap;padding-top:12px}
+#journal-message {min-height:22px;color:var(--muted);margin:16px 0}
+.journal-grid {display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:24px;align-items:start}
+.journal-section-head {display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px;flex-wrap:wrap}
+.journal-section-head h2,.journal-resume h2 {font-size:18px;margin:0;font-weight:600}
+.journal-section-head span {font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.journal-thread {border-bottom:1px solid var(--line);padding:0 0 20px;margin:0 0 20px}
+.journal-entry {overflow-wrap:anywhere}
+.journal-entry h3,.journal-task h3 {font-size:16px;margin:8px 0;font-weight:600}
+.journal-entry h4 {font-size:14px;margin:12px 0 6px;font-weight:600}
+.journal-entry p,.journal-task p {margin:8px 0;white-space:pre-wrap}
+.journal-meta,.journal-help {font-size:12px;color:var(--muted);line-height:1.6}
+.journal-progress {margin:12px 0}
+.journal-progress ul {margin:0;padding-left:20px}
+.journal-progress li {white-space:pre-wrap;margin:4px 0}
+.journal-thread details,.journal-task details {margin-top:12px}
+.journal-thread summary,.journal-task summary,#journal-new-task>summary {cursor:pointer;font-size:13px;padding:6px 0;color:var(--ink)}
+.journal-thread details .journal-entry {border-left:2px solid var(--line);padding-left:16px;margin-top:20px}
+.journal-task {border-bottom:1px solid var(--line);padding:16px 0;overflow-wrap:anywhere}
+.journal-tasks>label {display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}
+.journal-status {display:inline-block;font-size:12px;color:var(--muted)}
+.journal-status[data-status=blocked] {color:var(--warning-ink);background:var(--warning);padding:2px 6px;border-radius:4px}
+.journal-status[data-status=done] {color:var(--green)}
+#journal-panel form {display:flex;flex-direction:column;gap:12px;margin-top:12px}
+#journal-panel form label {display:flex;flex-direction:column;gap:6px;font-size:13px}
+#journal-panel form button {align-self:start}
+#journal-panel form p {font-size:12px;color:var(--muted)}
+#journal-panel input,#journal-panel textarea,#journal-panel select {max-width:100%;min-width:0}
+#journal-panel textarea {resize:vertical;font:inherit;line-height:1.5;border:1px solid var(--strong-line);border-radius:6px;background:var(--paper);color:var(--ink);padding:8px}
+.journal-resume {background:var(--subtle);border:1px solid var(--line);padding:20px;margin:16px 0 24px;overflow-wrap:anywhere}
+.journal-resume h3 {font-size:14px}
+.journal-resume p,.journal-resume li {white-space:pre-wrap}
+.journal-empty {border:1px solid var(--line);padding:16px;color:var(--muted);margin:16px 0}
+#journal-more,#journal-tasks-more {margin:12px 0 20px}
+#journal-new-task {margin-top:20px}
+@media(max-width:1000px) {.journal-grid {grid-template-columns:1fr}.journal-tasks {grid-row:1}.journal-tasks .journal-task {max-width:760px}}
+@media(max-width:650px) {.journal-active .masthead h1 {font-size:24px}.journal-filters {gap:12px}.journal-filters>label {min-width:0;flex:1 1 160px}.journal-filters>details {flex:1 1 auto}.journal-filters>button {min-height:44px}.journal-date-fields {gap:12px}.journal-date-fields label {min-width:0;flex:1}.journal-date-fields input {width:100%}#journal-panel button,#journal-panel summary {min-height:44px}#journal-panel input,#journal-panel select {min-height:44px}.journal-section-head span {font-size:12px}.journal-resume {padding:16px}}
+.journal-mobile-tabs {display:none}
+#journal-panel input:not([type=date]) {height:36px;border:1px solid var(--strong-line);border-radius:6px;padding:7px 9px;background:var(--paper);color:var(--ink)}
+.journal-active .sidebar .eyebrow,.journal-active .brand small {font-size:11px}
+@media(max-width:1000px) {.journal-mobile-tabs {display:flex;gap:12px;border-bottom:1px solid var(--line);padding-bottom:12px;margin:12px 0 20px}.journal-mobile-tabs button[aria-pressed=true] {background:var(--selected);color:var(--ink)}#journal-panel[data-pane=feed] .journal-tasks,#journal-panel[data-pane=tasks] .journal-feed {display:none}}

@@ -18,6 +18,7 @@ from markdown_it.token import Token
 from second_brain.annotations import COLORS, Annotations, Conflict, resolve_anchor, text_contract
 from second_brain.catalog import Catalog, catalog_diagnostics
 from second_brain.core import SLUG, safe_text
+from second_brain.workflow import JournalConflict
 
 
 def normalized(text):
@@ -31,7 +32,12 @@ def markdown_body(content):
         _, separator, body = content[4:].partition("\n---\n")
         if separator:
             content = body
-    return re.sub(r"<!-- event:[a-z0-9-]+ -->", "", content)
+    return re.sub(
+        r"^<!-- (?:event:[a-z0-9-]+|shiori-project:[a-z0-9-]*|shiori-data:[^\n]*) -->\n?",
+        "",
+        content,
+        flags=re.MULTILINE,
+    )
 
 
 def preview_text(content, title):
@@ -467,10 +473,10 @@ class ViewerHandler(BaseHTTPRequestHandler):
             "Content-Security-Policy",
             "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; font-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
         )
-        self.end_headers()
         try:
+            self.end_headers()
             self.wfile.write(data)
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
     def authorized(self, write=False):
@@ -496,13 +502,14 @@ class ViewerHandler(BaseHTTPRequestHandler):
         route = parsed.path[len(prefix) :]
         try:
             if (
-                route in ("", "app.js", "style.css", "theme.js", "highlights.js")
+                route in ("", "app.js", "journal.js", "style.css", "theme.js", "highlights.js")
                 and not parsed.query
             ):
                 name = route or "index.html"
                 mime = {
                     "index.html": "text/html",
                     "app.js": "text/javascript",
+                    "journal.js": "text/javascript",
                     "theme.js": "text/javascript",
                     "highlights.js": "text/javascript",
                     "style.css": "text/css",
@@ -512,6 +519,30 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     files("second_brain").joinpath("web", name).read_bytes(),
                     mime + "; charset=utf-8",
                 )
+            elif route in {"api/journal", "api/journal-state", "api/project-resume"}:
+                from second_brain.workflow import timeline, overview, resume_project
+
+                args = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=5)
+                allowed = (
+                    {"project", "offset", "start_date", "end_date"}
+                    if route == "api/journal"
+                    else {"project", "offset"}
+                    if route == "api/journal-state"
+                    else {"project"}
+                )
+                if set(args) - allowed or any(len(values) != 1 for values in args.values()):
+                    raise ValueError("Invalid journal query")
+                values = {key: value[0] for key, value in args.items() if value[0]}
+                if "offset" in values:
+                    values["offset"] = int(values["offset"])
+                function = (
+                    timeline
+                    if route == "api/journal"
+                    else overview
+                    if route == "api/journal-state"
+                    else resume_project
+                )
+                self.reply(200, function(self.server.viewer.catalog.brain, **values))
             elif route == "api/items":
                 self.reply(
                     200,
@@ -550,17 +581,19 @@ class ViewerHandler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         category_route = parsed.path == self.server.prefix + "/api/categories"
         undo_route = parsed.path == self.server.prefix + "/api/annotations/undo"
+        journal_route = parsed.path == self.server.prefix + "/api/journal"
         if (
             parsed.path != self.server.prefix + "/api/annotations"
             and not category_route
             and not undo_route
+            and not journal_route
         ) or len(self.path) > 5000:
             self.deny_write()
             return
         if category_route and self.command == "DELETE":
             self.deny_write()
             return
-        if undo_route and self.command != "POST":
+        if (undo_route or journal_route) and self.command != "POST":
             self.deny_write()
             return
         if not self.authorized(write=True):
@@ -598,7 +631,19 @@ class ViewerHandler(BaseHTTPRequestHandler):
             if len(raw) != int(lengths[0]):
                 raise ValueError("Incomplete JSON body")
             payload = json.loads(raw.decode("utf-8"))
-            if undo_route:
+            if journal_route:
+                brain = self.server.viewer.catalog.brain
+                if (
+                    not isinstance(payload, dict)
+                    or payload.get("mode") != "journal-only"
+                    or payload.get("source_agent") != "manual"
+                    or payload.get("scope") != brain.scope
+                ):
+                    raise ValueError(
+                        "Viewer writes journal-only manual events in its configured scope"
+                    )
+                result = brain.capture(payload)
+            elif undo_route:
                 result = self.server.viewer.undo_annotation(payload)
             elif category_route:
                 result = self.server.viewer.annotations.save_category(payload, annotation_id)
@@ -609,7 +654,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
             else:
                 result = self.server.viewer.save_annotation(payload, annotation_id)
             self.reply(201 if self.command == "POST" else 200, result)
-        except Conflict:
+        except (Conflict, JournalConflict):
             self.reply(409, {"error": "Los datos han cambiado. Actualiza antes de guardar."})
         except (ValueError, OSError, TypeError, KeyError, RecursionError):
             self.reply(

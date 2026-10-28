@@ -108,6 +108,10 @@ def validate_candidate(candidate, scope="personal"):
         "summary",
         "project",
         "progress",
+        "activity",
+        "supersedes",
+        "change_reason",
+        "tasks",
     }:
         raise ValueError("Unsupported journal-only fields")
     note_id = candidate.get("id", "")
@@ -143,8 +147,14 @@ def validate_candidate(candidate, scope="personal"):
             if not safe_text(item, 500).strip():
                 raise ValueError("Empty progress item")
     for text in [title, summary, *[item for items in progress.values() for item in items]]:
-        if "<!-- event:" in text or "<!-- shiori-project:" in text:
+        if any(
+            marker in text
+            for marker in ("<!-- event:", "<!-- shiori-project:", "<!-- shiori-data:")
+        ):
             raise ValueError("Reserved journal marker in text")
+    from second_brain.workflow import validate_fields
+
+    validate_fields(candidate)
     if journal_only:
         note_metadata({"project": candidate.get("project")})
     if not journal_only:
@@ -427,6 +437,11 @@ class Brain:
                             "id": note_id,
                             "event_id": pending_id,
                         }
+            from second_brain.workflow import check_capture, metadata as journal_metadata
+
+            unchanged = check_capture(self, candidate, previous_event)
+            if unchanged:
+                return {"status": "skipped", "reason": "unchanged-activity", "event_id": unchanged}
             moment = self.now()
             if previous_event:
                 moment = datetime.fromisoformat(previous_event["at"])
@@ -488,6 +503,10 @@ class Brain:
             marker = f"<!-- event:{event_id} -->"
             if marker not in journal:
                 journal += f"\n{marker}\n<!-- shiori-project:{project or ''} -->\n"
+                data = json.dumps(journal_metadata(candidate), ensure_ascii=True).replace(
+                    ">", "\\u003e"
+                )
+                journal += f"<!-- shiori-data:{data} -->\n"
                 journal += f"## {moment:%H:%M} — {title}\n\n"
                 journal += f"- Agent: {agent}\n- Outcome: {summary}\n"
                 if not journal_only:
@@ -499,6 +518,22 @@ class Brain:
                         journal += "".join(
                             "- " + item.strip().replace("\n", "\n  ") + "\n" for item in items
                         )
+                if candidate.get("supersedes"):
+                    journal += "\n### Correction\n"
+                    journal += f"- Replaces events: {', '.join(candidate['supersedes'])}\n"
+                    journal += (
+                        "- Reason: " + candidate["change_reason"].replace("\n", "\n  ") + "\n"
+                    )
+                if candidate.get("tasks"):
+                    journal += "\n### Tracked tasks\n"
+                    for task in candidate["tasks"]:
+                        journal += (
+                            f"- {task['id']} ({task['status']}, v{task['version'] + 1}): "
+                            + task["title"].replace("\n", "\n  ")
+                            + "\n"
+                        )
+                        if task["details"]:
+                            journal += "  " + task["details"].replace("\n", "\n  ") + "\n"
                 atomic_write(journal_path, journal)
             if not journal_only:
                 ledger["notes"][note_id] = relative

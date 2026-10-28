@@ -69,13 +69,33 @@ Keep a daily trail at meaningful checkpoints and before a handoff or task switch
 with progress when saving a lesson too; avoid a second entry for the same outcome. No need to ask
 for each permitted capture. Skip trivial actions and raw transcripts. Report observed results;
 mark plans and unresolved checks as pending rather than completed. Do not invent time spent.
-When resuming a project, call `read_journal(project=...)` for recent progress alongside canonical
-context. Dates use YYYY-MM-DD, inclusive, at most 31 days; default last seven local days.
+When resuming a project, call `resume_project(project=...)` alongside canonical context. It prioritizes
+recorded active tasks and the latest effective result, then historical suggestions/checks/decisions.
+Inspect error_count/tasks_omitted/truncated; recorded state still needs checking before action.
+Use `read_journal(project=...)` for recent progress. Dates use YYYY-MM-DD, inclusive, at most 31 days; default last seven local days.
 Page with next_offset and inspect errors/content_truncated. CLI: `journal --project project-id`.
 If the tool is absent, use the configured updated CLI; otherwise report retrieval unavailable.
 For a requested daily/weekly recap, summarize those entries with dates/references and distinguish
 results, checks and pending actions. Past blockers/next steps are historical: recheck them before
 claiming current status. Instruction-driven capture is best effort, not a background recorder.
+
+For a continuing activity, reuse `activity` (a project-local slug) across captures. Identical
+journal-only title/summary/progress for that activity on the same day is skipped. Changed results
+still append. Correct a capture with `supersedes` (up to eight committed event IDs in that project)
+and a concrete `change_reason`; keep the original history. Group related advances deliberately;
+do not infer that similar wording means the same activity. Corrections do not undo task states.
+
+Promote an actionable next step to `tasks` only when it is actual tracked work. Each change requires
+id (stable project-local slug), title, status (open/blocked/done/discarded), details and version.
+Use version 0 for creation; retrieve the current version before updating. `resume_project` returns
+active versions; `read_journal(view="tasks", project=..., offset=...)` pages all task states/history,
+including closed tasks. Use a new event for an update and retain its exact JSON for retries.
+Only mark work done after observing its completion; unknown progress does not establish success.
+On a stale-version/history conflict, read again and reconcile the intended change; never overwrite
+or bypass a pending capture. An explicit project is required for tasks, activities and corrections.
+CLI: `project-resume project-id` and `journal --view tasks --project project-id`.
+If host tool docs lack tracked work support, use the configured updated CLI or report unavailable;
+a six-field summary cannot stand in for a successful task state change.
 
 The core appends the daily journal and keeps prior note revisions for note captures. Avoid editing vault files directly, which bypasses validation and the ledger. Repeat an identical event ID only when retrying the same payload. A changed payload requires a new event ID.
 

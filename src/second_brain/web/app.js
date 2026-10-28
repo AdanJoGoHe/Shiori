@@ -260,6 +260,12 @@ function fragmentResult(item, categories) {
 }
 async function load() {
   const number = ++requestNumber;
+  if (state.kind === "journal") {
+    warning("");
+    JournalUI.show();
+    return JournalUI.load();
+  }
+  JournalUI.hide();
   $("results").setAttribute("aria-busy", "true");
   $("count").textContent = "Buscando…";
   const params = new URLSearchParams();
@@ -398,6 +404,7 @@ $("reader-body").addEventListener("click", event => {
 });
 for (const button of document.querySelectorAll(".collection")) button.onclick = () => {
   state.kind = button.dataset.kind;
+  history.replaceState(null, "", state.kind === "journal" ? "#diario" : location.pathname + location.search);
   state.offset = 0;
   state.selected = null;
   readerNumber++;
@@ -464,4 +471,5 @@ $("back").onclick = () => {
   } else $("search").focus();
 };
 readerMarks = new ReaderMarks();
-load();
+if (location.hash === "#diario") document.querySelector('.collection[data-kind="journal"]').click();
+else load();

@@ -364,28 +364,22 @@ def change_version(root, directory=None, apply=False):
 
 
 def run(root, arguments):
-    if not arguments or arguments[0] not in {
-        "serve",
-        "viewer",
-        "status",
-        "doctor",
-        "search",
-        "context",
-        "journal",
-        "project-resume",
-        "read",
-        "capture",
-        "classify",
-        "pending",
-        "pause",
-        "resume",
-        "catalog",
-        "backup",
-        "export-memory",
-        "import-memory",
-        "learn",
-    }:
-        raise ValueError("Choose a supported Shiori command after run")
+    from second_brain.cli import MANAGED_COMMANDS, create_parser
+
+    if arguments in (["--help"], ["-h"]):
+        create_parser(managed=True).print_help()
+        return 0
+    if not arguments or arguments[0] not in MANAGED_COMMANDS:
+        create_parser(managed=True).print_usage(file=sys.stderr)
+        name = arguments[0] if arguments and re.fullmatch(r"[a-z-]{1,60}", arguments[0]) else None
+        raise ValueError(
+            (
+                f"Unknown Shiori command: {name}. "
+                if name
+                else "A supported Shiori command is required. "
+            )
+            + "See shiori.cmd run --help"
+        )
     if any(arg == "--config" or arg.startswith("--config=") for arg in arguments):
         raise ValueError("Managed sessions always use their own configuration")
     with FileLock(scoped_path(root, "management.lock"), timeout=5):
@@ -397,7 +391,7 @@ def run(root, arguments):
         lease = FileLock(sessions / f"{uuid.uuid4().hex}.lease", timeout=0)
         lease.acquire()
     try:
-        return subprocess.call(
+        result = subprocess.call(
             [
                 str(python_in(root, data["active"])),
                 "-I",
@@ -406,8 +400,14 @@ def run(root, arguments):
                 "--config",
                 str(root / "data/config.json"),
                 *arguments,
-            ]
+            ],
+            env={**os.environ, "SHIORI_MANAGED_ROOT": str(root)},
         )
+        if arguments[0] == "serve" and result:
+            from second_brain.diagnostics import mcp_fallback
+
+            print(mcp_fallback(root=root), file=sys.stderr)
+        return result
     finally:
         lease.release()
 
@@ -461,7 +461,9 @@ def main():
     sub.add_parser("status")
     probe_parser = sub.add_parser("probe")
     probe_parser.add_argument("--expect-version", required=True)
-    sub.add_parser("run").add_argument("arguments", nargs=argparse.REMAINDER)
+    running = sub.add_parser("run", add_help=False)
+    running.add_argument("--help", "-h", action="store_true", dest="run_help")
+    running.add_argument("arguments", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     try:
         root = private_root(args.root)
@@ -484,7 +486,7 @@ def main():
             ):
                 result = augment(root, args.skills_dir, args.apply)
         elif args.action == "run":
-            raise SystemExit(run(root, args.arguments))
+            raise SystemExit(run(root, ["--help"] if args.run_help else args.arguments))
         elif args.action == "probe":
             if installed_version("second-brain") != args.expect_version:
                 raise ValueError("Installed package version mismatch")
@@ -511,6 +513,10 @@ def main():
         zipfile.BadZipFile,
     ) as error:
         print(f"Shiori runtime: {error}", file=sys.stderr)
+        if args.action == "run" and args.arguments and args.arguments[0] == "serve":
+            from second_brain.diagnostics import mcp_fallback
+
+            print(mcp_fallback(root=args.root), file=sys.stderr)
         raise SystemExit(1) from None
 
 

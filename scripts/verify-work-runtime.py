@@ -104,6 +104,91 @@ def main():
     assert not skills.exists()
     assert cli("augment", "--skills-dir", str(skills), "--apply")["applied"]
 
+    # Exercise the actual managed launcher; no host configuration or real memory is used.
+    launcher = (
+        [str(root / "shiori.cmd")]
+        if os.name == "nt"
+        else [sys._base_executable, "-I", str(root / "shiori.py")]
+    )
+
+    def agent_cli(*arguments, payload=None):
+        return subprocess.run(
+            [*launcher, "run", *arguments],
+            input=None if payload is None else json.dumps(payload, ensure_ascii=False),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        )
+
+    for flag in ("--help", "-h"):
+        help_result = agent_cli(flag)
+        assert (
+            help_result.returncode == 0
+            and "note" in help_result.stdout
+            and "--config" not in help_result.stdout
+        )
+    for arguments in [(), ("sarch",)]:
+        unknown = agent_cli(*arguments)
+        assert (
+            unknown.returncode != 0 and "note" in unknown.stderr and "run --help" in unknown.stderr
+        )
+    assert agent_cli("search", "--help").returncode == 0
+    request = {
+        "candidate": {
+            "scope": "work",
+            "id": "agent-fixture",
+            "event_id": "agent-fixture",
+            "title": "Agent workflow fixture",
+            "type": "knowledge",
+            "status": "verified",
+            "source_agent": "manual",
+            "project": "agent-cli",
+            "tags": ["kubernetes"],
+            "body": "Comprobación ágil 😀\nSolo datos ficticios.",
+            "evidence": "Synthetic fixture",
+        },
+        "assessment": {
+            "material": "corporate",
+            "reusable": True,
+            "meaningful": True,
+            "evidence_kind": "none",
+        },
+    }
+    preview = agent_cli("note", "--request-file", "-", payload=request)
+    assert preview.returncode == 0 and not json.loads(preview.stdout)["applied"]
+    assert cli("run", "status")["notes"] == 0
+    saved = agent_cli("note", "--request-file", "-", "--apply", payload=request)
+    assert saved.returncode == 0 and json.loads(saved.stdout)["candidate"]["status"] == "unverified"
+    exact = agent_cli("search", "--id", "agent-fixture")
+    assert json.loads(exact.stdout)["found"]
+    assert json.loads(agent_cli("search", "--id", "missing").stdout)["found"] is False
+    assert (
+        json.loads(agent_cli("search", "--tag", " KUBERNETES ").stdout)[0]["id"] == "agent-fixture"
+    )
+    text = agent_cli("read", "agent-fixture", "--format", "text")
+    assert text.returncode == 0 and text.stdout == cli("run", "read", "agent-fixture")
+    assert "Comprobación ágil 😀\nSolo datos" in text.stdout and "status: unverified" in text.stdout
+    changed = json.loads(json.dumps(request))
+    changed["candidate"].update(
+        event_id="agent-updated", body="Comprobación ágil 😀\nOtro párrafo."
+    )
+    classified = json.loads(agent_cli("classify", "--request-file", "-", payload=changed).stdout)
+    assert classified["decision"] == "update" and "+Otro párrafo." in classified["diff"]["text"]
+    stale = agent_cli(
+        "note", "--request-file", "-", "--apply", "--expect-revision", "absent", payload=changed
+    )
+    assert stale.returncode != 0 and json.loads(stale.stdout)["capture"]["status"] == "blocked"
+    assert agent_cli("capture", "--event-file", "-", payload=changed).returncode != 0
+    captured = agent_cli("capture", "--event-file", "-", payload=classified["candidate"])
+    assert json.loads(captured.stdout)["status"] == "saved"
+    assert (
+        json.loads(
+            agent_cli("capture", "--event-file", "-", payload=classified["candidate"]).stdout
+        )["status"]
+        == "duplicate"
+    )
+
     candidate = {
         "scope": "work",
         "id": "synthetic-git-command",
@@ -348,6 +433,7 @@ def main():
                     "owned-skill",
                     "real-isolated-provider",
                     "managed-learning-proposal-activation",
+                    "agent-cli-help-exact-search-stdin-diff-note",
                 ],
                 "two_version_update_rollback": bool(args.next_release_dir),
                 "online_metadata": "synthetic" if args.simulate_online else "not-used",

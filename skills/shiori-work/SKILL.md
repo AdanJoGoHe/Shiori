@@ -87,6 +87,23 @@ changed payloads require a new event ID. A pending-note result requires retrying
 first. `list_pending_captures` lists identifiers, not original bodies: never reconstruct a payload
 from an excerpt. Report only returned outcomes; capture failure does not block the main task.
 
+When MCP is missing, fails at startup/transport or times out, use this installation's stable
+`shiori.cmd run status`, `run doctor --catalog`, `run pending` and read-only retrieval. Do not use
+the personal CLI or infer another work installation from the current repo. If the CLI also fails,
+report the manifest/interpreter/configuration problem for this installation and continue without
+memory. A tool validation error is distinct from connection failure. After a write timeout retain
+the exact candidate/event_id; inspect state before an identical retry, never invent another ID.
+
+Updated managed CLI: `run --help` lists commands; `run search --id note-id` checks exact identity,
+`run search --tag tag-id` browses exact AND tags, and `run read note-id --format text` reads literal
+Markdown (JSON stays default). MCP search supports note_id without text/filters when advertised.
+`run note --request-file request.json` accepts candidate plus explicit work assessment, searches
+and classifies; only --apply captures the returned candidate. Inspect update diff/truncated and
+use --expect-revision with the preview base_revision for a separately reviewed update, or absent
+for creation. Related text matches never justify choosing another note ID automatically.
+classify/note --request-file - and capture --event-file - accept bounded UTF-8 stdin; keep exact
+sent JSON/event IDs privately for recovery. Check installed help/tool docs before using new fields.
+
 After verifying a reusable multi-step workflow, run `learn guide` through this installation's
 configured CLI (`shiori.cmd run learn guide` for the managed work runtime). Save a curated
 proposal with `learn propose --apply`; it stays a private draft until activation. Search

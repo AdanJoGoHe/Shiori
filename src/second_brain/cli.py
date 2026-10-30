@@ -7,6 +7,29 @@ from pathlib import Path
 from second_brain.core import Brain, load_config
 from second_brain.catalog import Catalog
 
+MANAGED_COMMANDS = (
+    "serve",
+    "viewer",
+    "status",
+    "doctor",
+    "search",
+    "context",
+    "journal",
+    "project-resume",
+    "read",
+    "capture",
+    "classify",
+    "note",
+    "pending",
+    "pause",
+    "resume",
+    "catalog",
+    "backup",
+    "export-memory",
+    "import-memory",
+    "learn",
+)
+
 
 def default_config():
     if os.environ.get("SECOND_BRAIN_CONFIG"):
@@ -14,13 +37,13 @@ def default_config():
     return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SecondBrain/personal/config.json"
 
 
-def main():
-    # JSON consumers and MCP expect UTF-8 even when Windows redirects stdout as cp1252.
-    for stream in [sys.stdout, sys.stderr]:
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description="Shiori: Markdown memory and journal")
-    parser.add_argument("--config", type=Path, default=default_config())
+def create_parser(managed=False):
+    parser = argparse.ArgumentParser(
+        prog="shiori.cmd run" if managed else None,
+        description="Shiori: Markdown memory and journal",
+    )
+    if not managed:
+        parser.add_argument("--config", type=Path, default=default_config())
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ["status", "doctor", "pause", "resume", "serve", "install-codex", "uninstall"]:
         command = sub.add_parser(name)
@@ -52,9 +75,25 @@ def main():
     upgrade = sub.add_parser("upgrade-codex", help="Preview an owned Codex integration update")
     upgrade.add_argument("--apply", action="store_true", help="Back up and apply the update")
     capture = sub.add_parser("capture")
-    capture.add_argument("--event-file", type=Path, required=True)
+    capture.add_argument(
+        "--event-file",
+        type=Path,
+        required=True,
+        help="Candidate JSON file, or - for UTF-8 stdin; retain original for retries",
+    )
     classify = sub.add_parser("classify", help="Preview capture quality without writing")
-    classify.add_argument("--request-file", type=Path, required=True)
+    classify.add_argument(
+        "--request-file",
+        type=Path,
+        required=True,
+        help="Candidate + assessment JSON file, or - for UTF-8 stdin",
+    )
+    note = sub.add_parser("note", help="Search and classify a candidate; capture only with --apply")
+    note.add_argument(
+        "--request-file", type=Path, required=True, help="UTF-8 JSON file, or - for stdin"
+    )
+    note.add_argument("--apply", action="store_true")
+    note.add_argument("--expect-revision", help="Refuse a changed preview base (SHA256 or absent)")
     backup = sub.add_parser("backup", help="Create a new local recovery bundle")
     backup.add_argument("--output", type=Path, required=True)
     export_memory = sub.add_parser("export-memory", help="Export a portable local recovery bundle")
@@ -71,8 +110,17 @@ def main():
     recovery.add_argument("--destination", type=Path, required=True)
     for name in ["search", "context"]:
         search = sub.add_parser(name)
-        search.add_argument("query")
-        search.add_argument("--tag", action="append", dest="tags")
+        search.add_argument("query", **({"nargs": "?", "default": ""} if name == "search" else {}))
+        if name == "search":
+            search.add_argument(
+                "--id", dest="note_id", help="Exact canonical ID; cannot combine with text/filters"
+            )
+        search.add_argument(
+            "--tag",
+            action="append",
+            dest="tags",
+            help="Exact normalized tag; repeated tags require all matches (AND)",
+        )
         search.add_argument("--project")
         search.add_argument("--type")
         search.add_argument("--status")
@@ -81,6 +129,7 @@ def main():
             search.add_argument("--max-chars", type=int, default=8000)
     read = sub.add_parser("read")
     read.add_argument("id")
+    read.add_argument("--format", choices=["json", "text"], default="json")
     pending = sub.add_parser("pending", help="List pending capture identifiers without bodies")
     pending.add_argument("--offset", type=int, default=0)
     pending.add_argument("--limit", type=int, default=25)
@@ -129,8 +178,33 @@ def main():
         if name == "activate":
             action.add_argument("--host", choices=["codex", "augment"], required=True)
             action.add_argument("--skills-dir", type=Path, required=True)
+    if managed:
+        for name in list(sub.choices):
+            if name not in MANAGED_COMMANDS:
+                del sub.choices[name]
+        sub._choices_actions[:] = [
+            action for action in sub._choices_actions if action.dest in MANAGED_COMMANDS
+        ]
+    return parser
+
+
+def main():
+    # JSON consumers and MCP expect UTF-8 even when Windows redirects stdout as cp1252.
+    for stream in [sys.stdout, sys.stderr]:
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", newline="\n")
+    parser = create_parser()
     args = parser.parse_args()
     try:
+        input_request = None
+        if args.command in {"classify", "capture", "note"}:
+            from second_brain.intake import read_json, classification_request
+
+            input_request = read_json(
+                args.event_file if args.command == "capture" else args.request_file
+            )
+            if args.command != "capture":
+                classification_request(input_request)
         if args.command == "doctor" and args.catalog:
             from second_brain.paths import diagnose
 
@@ -198,7 +272,16 @@ def main():
             os.environ["FASTMCP_TELEMETRY_MODE"] = "off"
             from second_brain.server import serve
 
-            serve(config)
+            try:
+                serve(config)
+            except Exception:
+                from second_brain.diagnostics import mcp_fallback
+
+                print(
+                    "Shiori: MCP startup/transport failed.\n" + mcp_fallback(config=args.config),
+                    file=sys.stderr,
+                )
+                raise SystemExit(1) from None
             return
         if args.command == "learn":
             from second_brain.learning import Learning
@@ -267,19 +350,19 @@ def main():
             result = (
                 install(args.config) if args.command == "install-codex" else uninstall(args.config)
             )
-        elif args.command == "classify":
+        elif args.command in {"classify", "note"}:
             from second_brain.quality import classify_capture
+            from second_brain.intake import read_json, classification_request, note_flow
 
-            if args.request_file.stat().st_size > 40000:
-                raise ValueError("Classification request exceeds 40 KB")
-            request = json.loads(args.request_file.read_text(encoding="utf-8-sig"))
-            if not isinstance(request, dict) or set(request) != {"candidate", "assessment"}:
-                raise ValueError("Request requires only candidate and assessment")
-            result = classify_capture(brain, request["candidate"], request["assessment"])
+            request = input_request
+            if args.command == "note":
+                result = note_flow(
+                    brain, request, apply=args.apply, expect_revision=args.expect_revision
+                )
+            else:
+                result = classify_capture(brain, *classification_request(request))
         elif args.command == "capture":
-            if args.event_file.stat().st_size > 40000:
-                raise ValueError("Event file exceeds 40 KB")
-            result = brain.capture(json.loads(args.event_file.read_text(encoding="utf-8-sig")))
+            result = brain.capture(input_request)
         elif args.command in {"search", "context"}:
             filters = {
                 key: getattr(args, key)
@@ -291,9 +374,17 @@ def main():
 
                 result = build_context(brain, args.query, filters, args.max_chars)
             else:
-                result = brain.search(args.query, filters=filters)
+                if args.note_id is not None:
+                    if args.query or filters:
+                        raise ValueError("--id cannot be combined with text or filters")
+                    result = brain.find(args.note_id)
+                else:
+                    result = brain.search(args.query, filters=filters)
         elif args.command == "read":
             result = brain.read(args.id)
+            if args.format == "text":
+                sys.stdout.write(result)
+                return
         elif args.command == "pending":
             result = brain.pending_captures(args.offset, args.limit)
         elif args.command == "journal":
@@ -337,6 +428,11 @@ def main():
         )
         if args.command == "import-memory" and result["status"] == "blocked":
             raise SystemExit(1)
+        if args.command == "note" and (
+            result["decision"] == "deny"
+            or result.get("capture", {}).get("status") in {"blocked", "failed", "skipped"}
+        ):
+            raise SystemExit(1)
         if (
             args.command == "doctor"
             and args.provider
@@ -345,6 +441,10 @@ def main():
             raise SystemExit(1)
     except (ValueError, OSError, KeyError) as error:
         print(f"Shiori: {error}", file=sys.stderr)
+        if args.command == "serve":
+            from second_brain.diagnostics import mcp_fallback
+
+            print(mcp_fallback(config=args.config), file=sys.stderr)
         raise SystemExit(1)
 
 

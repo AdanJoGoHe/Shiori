@@ -71,6 +71,7 @@ Para proteger o mover tus notas:
 - [Actualizar una instalación](docs/actualizacion.md).
 - [Aprender procedimientos y convertirlos en skills](docs/learning.md).
 - [Diario de avances y resúmenes por día o semana](docs/diario.md).
+- [CLI para agentes, vista previa y respaldo de MCP](docs/agent-cli.md).
 
 ## Cómo va el proyecto
 

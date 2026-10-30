@@ -161,6 +161,33 @@ def validate_candidate(candidate, scope="personal"):
         note_metadata(candidate)
 
 
+def render_note(candidate, old, timestamp, scope):
+    """One rendering path for committed notes and authored-content previews."""
+    prior = yaml.safe_load(old.split("---", 2)[1]) if old else {}
+    metadata = {
+        "schema_version": 1,
+        "id": candidate["id"],
+        "title": candidate["title"].strip(),
+        "type": candidate["type"],
+        "scope": scope,
+        "status": candidate["status"],
+        "created_at": prior.get("created_at", timestamp),
+        "updated_at": timestamp,
+        "last_verified_at": timestamp if candidate["status"] == "verified" else None,
+        "source_agent": candidate["source_agent"],
+    }
+    metadata.update(note_metadata(candidate, prior))
+    return (
+        "---\n"
+        + yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False)
+        + (
+            f"---\n\n# {metadata['title']}\n\n{candidate['body'].strip()}\n\n## Evidence\n"
+            + (candidate.get("evidence", "").strip() or "Not verified")
+            + "\n"
+        )
+    )
+
+
 def load_config(path):
     config = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     if (
@@ -397,17 +424,26 @@ class Brain:
             return results
         return sorted(results, key=lambda item: (-item["score"], item["id"]))[:limit]
 
+    def find(self, note_id):
+        if not isinstance(note_id, str) or not SLUG.fullmatch(note_id):
+            raise ValueError("Invalid note ID")
+        with self.lock:
+            path = self.ledger()["notes"].get(note_id)
+            notes = (
+                []
+                if path is None
+                else [{"id": note_id, "path": path, "excerpt": self.read(note_id)[:1600]}]
+            )
+        return {"found": path is not None, "id": note_id, "notes": notes}
+
     def capture(self, candidate):
         validate_candidate(candidate, self.scope)
         journal_only = candidate.get("mode", "note") == "journal-only"
         note_id = candidate.get("id", "")
         event_id = candidate["event_id"]
         kind = candidate.get("type")
-        status = candidate.get("status")
         agent = candidate["source_agent"]
         title = candidate["title"].strip()
-        body = candidate.get("body", "").strip()
-        evidence = candidate.get("evidence", "").strip()
         summary = candidate.get("summary", "" if journal_only else title).strip()
         fingerprint = hashlib.sha256(json.dumps(candidate, sort_keys=True).encode()).hexdigest()
         with self.lock:
@@ -456,30 +492,8 @@ class Brain:
                 if note_path.exists() and note_id not in ledger["notes"] and not previous_event:
                     raise ValueError("Refusing to overwrite an unmanaged note")
                 old = self.read(note_id) if note_id in ledger["notes"] else None
-                prior_metadata = yaml.safe_load(old.split("---", 2)[1]) if old else {}
-                created = yaml.safe_load(old.split("---", 2)[1])["created_at"] if old else timestamp
-                metadata = {
-                    "schema_version": 1,
-                    "id": note_id,
-                    "title": title,
-                    "type": kind,
-                    "scope": self.scope,
-                    "status": status,
-                    "created_at": created,
-                    "updated_at": timestamp,
-                    "last_verified_at": timestamp if status == "verified" else None,
-                    "source_agent": agent,
-                    "source_refs": [],
-                    "tags": [],
-                    "related": [],
-                    "sensitivity": "normal",
-                }
-                metadata.update(note_metadata(candidate, prior_metadata))
-                project = metadata["project"]
-                content = "---\n" + yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False)
-                content += (
-                    f"---\n\n# {title}\n\n{body}\n\n## Evidence\n{evidence or 'Not verified'}\n"
-                )
+                content = render_note(candidate, old, timestamp, self.scope)
+                project = yaml.safe_load(content.split("---", 2)[1])["project"]
                 if old and old != content:
                     revision = hashlib.sha256(old.encode()).hexdigest()[:16]
                     history = self.path(f"archive/{note_id}/{revision}.md")

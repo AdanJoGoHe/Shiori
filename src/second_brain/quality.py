@@ -2,8 +2,39 @@
 
 import hashlib
 import json
+from difflib import unified_diff
 
-from second_brain.core import safe_text, validate_candidate
+import yaml
+
+from second_brain.core import render_note, safe_text, validate_candidate
+
+
+def note_diff(brain, candidate, current):
+    def authored(content):
+        _, front, body = content.split("---", 2)
+        metadata = yaml.safe_load(front)
+        for key in ("created_at", "updated_at", "last_verified_at"):
+            metadata.pop(key, None)
+        return "---\n" + yaml.safe_dump(metadata, allow_unicode=True, sort_keys=True) + "---" + body
+
+    proposed = render_note(candidate, current, None, brain.scope)
+    path = brain.ledger()["notes"][candidate["id"]]
+    text = "".join(
+        unified_diff(
+            authored(current).splitlines(keepends=True),
+            authored(proposed).splitlines(keepends=True),
+            fromfile=path,
+            tofile=path + " (proposed)",
+        )
+    )
+    return {
+        "format": "unified",
+        "base_revision": hashlib.sha256(current.encode()).hexdigest(),
+        "text": text[:12000],
+        "truncated": len(text) > 12000,
+        "unchanged": not text,
+        "compared": "Authored content and metadata; generated timestamps excluded",
+    }
 
 
 def classify_capture(brain, candidate, assessment):
@@ -88,11 +119,13 @@ def classify_capture(brain, candidate, assessment):
                 "journal-only", "meaningful-progress", candidate=prepared, warnings=warnings
             )
         existing = prepared["id"] in ledger["notes"]
+        comparison = {}
         if existing:
-            brain.read(prepared["id"])
+            comparison["diff"] = note_diff(brain, prepared, brain.read(prepared["id"]))
     return result(
         "update" if existing else "save",
         "reusable-insight",
         candidate=prepared,
         warnings=warnings,
+        **comparison,
     )

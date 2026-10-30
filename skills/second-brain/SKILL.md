@@ -133,6 +133,25 @@ or select a restored deployment without a user request. Bundles are plaintext; c
 private destinations outside source Git/sync/shared paths. Deletion remains manual and may leave
 historical copies in archives/backups. Never edit vault files or the ledger to bypass validation.
 
+With an updated configured CLI, `search --id note-id` checks exact identity (found=false means
+absent; read errors do not). `search --tag tag-id` browses exact tags; repeated tags require all.
+`read note-id --format text` returns literal Markdown; JSON remains the default. Supported MCP
+search tools accept note_id without query/filters and tag-only filters without an artificial query.
+For combined intake use `note --request-file request.json`: candidate plus explicit assessment,
+search and classify by default, capture the returned candidate only with --apply. Inspect update
+diffs and their truncated flag. Carry base_revision into --expect-revision for a separately reviewed
+update, or absent for creation. Never select a different ID from a related text match automatically.
+classify/note --request-file - and capture --event-file - accept bounded UTF-8 stdin; retain the
+original sent candidate/event_id privately for retries. Check running help/docs before using new
+options; an old server needs an updated configured CLI, not a guessed deployment.
+
+If MCP is missing, fails to start, loses transport or times out, use this connection's approved
+interpreter and --config for status, doctor --catalog, search/read and pending. A tool validation
+error is not a broken connection. A write timeout is uncertain: inspect state and retry the same
+candidate/event_id only when appropriate. Never recapture with a new ID or fall back to another
+profile. If CLI also fails, report the selected installation's manifest/interpreter/config issue
+and continue the main task without memory; do not inspect source code as the first recovery step.
+
 Local config: `%LOCALAPPDATA%\SecondBrain\personal\config.json`. This instance supports personal scope only. Hook-driven capture and Claude/Augment host validation are pending; instruction-driven capture is best effort.
 
 After verifying a reusable multi-step workflow, use the configured Shiori CLI and explicit

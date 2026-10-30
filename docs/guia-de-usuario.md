@@ -393,8 +393,15 @@ Abre la URL privada que imprime. Solo escucha en `127.0.0.1`; no compartas esa d
 pegues en GitHub. Mantén abierto el proceso y usa `Ctrl+C` para terminarlo. Para ver datos
 sintéticos, desde el checkout: `.\.venv\Scripts\python.exe scripts/demo-viewer.py`.
 
-1. Elige documentación, notas o diario y busca palabras del contenido.
-2. Combina etiquetas de documentos, proyecto, estado y fechas disponibles.
+Al abrirlo verás **Inicio**, con textos marcados, páginas recientes y avances de Hoy. La fecha
+viene del servidor de la memoria. El menú lateral permite pasar a Biblioteca, Fragmentos y Diario;
+el tema también está ahí. Favoritos y Agent log muestran lo que falta hasta que estén disponibles.
+
+1. En **Biblioteca**, abre **Colecciones de la biblioteca** para elegir documentación o conocimiento.
+   Usa el buscador visible arriba, o `Ctrl+K`. **Buscar en** cambia entre documentos y fragmentos;
+   desde Inicio o Diario, escribir en ese buscador abre la biblioteca correspondiente.
+2. Combina etiquetas de documentos, proyecto, estado y fechas disponibles. Puedes quitar cada
+   filtro activo por separado. Atrás/Adelante y **Volver a resultados** conservan la consulta y la página.
 3. Abre un documento y usa el índice de encabezados.
 4. Selecciona texto y pulsa **Marcar selección**, o introduce su texto exacto como alternativa.
 5. Elige color y una o varias categorías. Puedes añadir **Título breve** y **Para qué sirve**; guarda la marca.
@@ -422,7 +429,8 @@ como si fuera segura. Las fuentes documentales ausentes necesitan sus propios ar
 
 Para recuperar textos marcados entre documentos:
 
-1. En **Buscar en**, elige **Fragmentos marcados**.
+1. Abre **Fragmentos** en el menú lateral, o elige **Fragmentos marcados** en **Buscar en**.
+   Los accesos Comando, Dirección IP, Ruta e Información importante seleccionan una categoría exacta.
 2. Pulsa **Comando**, **Dirección IP**, **Ruta** o una categoría propia. Se muestran solo las
    marcas de esa categoría: texto exacto, un poco de contexto y documento de origen.
 3. Puedes buscar en el texto, título, descripción o nombre de categoría y combinar color, origen, proyecto y etiquetas

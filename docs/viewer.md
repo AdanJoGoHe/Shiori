@@ -1,6 +1,7 @@
 # Local visual library
 
-Local personal explorer under epic #27, with [assembled MVP acceptance](explorer-acceptance.md). It consumes the catalog from #29.
+The local explorer uses the configured personal or work deployment. Historical MVP checks are in
+[assembled acceptance](explorer-acceptance.md); the current desktop redesign belongs to public epic #22.
 The implementation uses Python's local HTTP server, packaged HTML/CSS/JavaScript and the already
 installed markdown-it-py, now declared directly in the lock. No frontend build step or CDN.
 
@@ -12,7 +13,7 @@ The bind address is fixed to 127.0.0.1. Stop a foreground launch with Ctrl+C. Re
 a new session URL. No service, scheduler or system startup entry is installed.
 
 `python scripts/demo-viewer.py` starts the same viewer with three documents, two notes and a journal
-in a new temporary deployment. All content is marked synthetic; Ctrl+C removes only that temporary
+and two text marks in a new temporary deployment. All content is marked synthetic; Ctrl+C removes only that temporary
 directory. Use the demo for screenshots, browser validation and reviews; keep real notes out of GitHub.
 
 Documentation roots retain the [catalog configuration](catalog.md). Refresh sees file changes;
@@ -20,6 +21,16 @@ restart to load configuration changes. Uninstall the package/stop the process to
 vault/state and prior installation backups are preserved. Existing MCP processes are independent.
 
 ## Interaction
+
+The desktop shell follows the A / Mesa de trabajo direction reviewed in prototype PR #37.
+The prototype remains separate from production source. See [desktop workspace](viewer-workspace.md).
+Start on Inicio: bounded previews of important fragments, recent pages and today's journal.
+The server supplies scope and calendar day through capability-protected `api/viewer-info`;
+it accepts no parameters and returns no configuration paths. Refresh fetches the day again.
+The sidebar names Biblioteca, Fragmentos and Diario; Favoritos and Agent log explicitly say
+that their storage/APIs are pending. They do not simulate saved data or observe tools.
+The library search remains visible, including when browsing the diary; typing there searches
+documents/fragments, not diary summaries. Diary project/date controls keep their own semantics.
 
 Collections distinguish documentation, canonical knowledge and dated journal progress.
 Journal opens a dedicated [activity timeline and tracked-task view](diario.md), with project/date
@@ -33,7 +44,10 @@ search matches all requested words, ignoring case and diacritics. Results combin
 tags, source, project, type, status, agent and inclusive updated-date bounds. Empty/unknown metadata
 can be selected. Relevance, updated time and title ordering are deterministic; pages contain 20 rows.
 Filter choices come from authorized content in the current collection/source. Query, filter and
-selection state stays in page memory, not URL parameters, local storage or analytics; reload resets it.
+selection state stays in this tab and browser history state, not URL parameters, app localStorage
+or analytics. Back/Forward restores filters, pagination and the selected reader. Reload starts
+the named view with fresh filters. Only known screen names appear in hash routes; existing
+`#diario` links remain supported.
 The Tema selector separately offers Claro (default), Oscuro and Café Latte. Only the theme name
 is saved in browser localStorage; unavailable/invalid storage falls back to Claro. A local script
 runs before CSS to avoid a wrong-theme first paint; native controls use the matching color-scheme.

@@ -30,7 +30,7 @@ async function main() {
     else { await locator.click({trial: true}); await locator.press('Enter'); }
   }
   async function open() {
-    await page.goto(input.url);
+    await page.goto(input.url + '#biblioteca');
     await page.locator('#results[aria-busy="false"]').waitFor();
     const button = page.locator('#results button.result').filter({hasText: 'SB-ANNOTATION-ACCEPTANCE'});
     await activate(button);
@@ -212,7 +212,7 @@ async function main() {
       const item = (await marks()).find(m => m.id === state.commandId);
       assert.equal(item.anchor.reason, 'ambiguous');
       assert.equal(item.anchor.start, null);
-      await page.goto(input.url);
+      await page.goto(input.url + '#biblioteca');
       await fragments();
       await page.locator('.fragment-result').filter({hasText: 'texto ambiguo'}).first().waitFor();
       await activate(page.locator('.fragment-result').filter({has: page.getByText(input.command, {exact: true})})
@@ -228,7 +228,7 @@ async function main() {
       state.command = repaired.quote;
       check('ambiguous duplicates never auto-move; reader/search explain and manual repair preserves ID/tags');
     } else if (input.phase === 'orphan') {
-      await page.goto(input.url);
+      await page.goto(input.url + '#biblioteca');
       await fragments(state.command);
       const result = page.locator('.fragment-result');
       await result.filter({hasText: 'documento no disponible'}).waitFor();

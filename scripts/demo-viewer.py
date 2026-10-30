@@ -91,7 +91,30 @@ El visor consulta contenido autorizado. Las lecciones pasan por la captura valid
                 }
             )
             assert result["status"] == "saved"
-        assert Viewer(brain).items({})["total"] == 6
+        viewer = Viewer(brain)
+        assert viewer.items({})["total"] == 6
+        document = viewer.content("documentation:demo-docs:instalacion.md")
+        for quote, category, color in [
+            ('python -m venv .venv\necho "Listo 😀"', "comando", "green"),
+            (
+                "Usa un entorno aislado para separar las dependencias del proyecto.",
+                "informacion-importante",
+                "yellow",
+            ),
+        ]:
+            start = document["text"].index(quote)
+            viewer.annotations.save(
+                document,
+                dict(
+                    document_id=document["item"]["id"],
+                    revision=document["revision"],
+                    start=start,
+                    end=start + len(quote),
+                    quote=quote,
+                    color=color,
+                    tags=[category],
+                ),
+            )
         serve_viewer(brain)
 
 

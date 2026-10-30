@@ -123,8 +123,9 @@ forzar un reinicio de instalación.
 Requiere una **release realmente publicada** o un borrador al que tengas acceso. Código y workflow
 en GitHub no significan archivos publicados. Si no están disponibles, instala desde código.
 
-Descarga juntos el wheel, el archivo de dependencias fijadas y `SHA256SUMS`. El manifiesto incluye
-también el archivo fuente: descarga los tres archivos que enumera antes de verificarlos.
+Descarga los cinco archivos de la misma release: wheel, fuente (`.tar.gz`), dependencias fijadas,
+`install-shiori.ps1` y `SHA256SUMS`. El manifiesto enumera los otros cuatro archivos; el ejemplo
+los verifica todos antes de instalar el wheel.
 
 ```powershell
 foreach ($Entry in Get-Content -LiteralPath '.\SHA256SUMS') {
@@ -136,12 +137,13 @@ foreach ($Entry in Get-Content -LiteralPath '.\SHA256SUMS') {
 
 # En una carpeta nueva, no encima de una instalación existente.
 uv venv --python 3.12 .venv
-uv pip install --python .venv --constraint second_brain-0.1.0a1-constraints.txt second_brain-0.1.0a1-py3-none-any.whl
+uv pip install --python .venv --constraint second_brain-0.1.0a5-constraints.txt second_brain-0.1.0a5-py3-none-any.whl
 ```
 
 Los hashes detectan cambios respecto al manifiesto, no autentican un manifiesto sustituido:
-descarga del repositorio que conoces. Estos nombres corresponden al paquete `0.1.0a1`, con
-etiqueta GitHub `v0.1.0-alpha.1`.
+descarga del repositorio que conoces. Estos nombres corresponden a la release publicada
+`0.1.0a5`, con etiqueta GitHub `v0.1.0-alpha.5`. Para otra versión, cambia ambos nombres
+usando los archivos de esa misma release.
 
 El wheel incluye programa y skill; no tu configuración, datos ni scripts administrativos del
 checkout. Guarda primero el JSON del apartado siguiente como un `config.json` privado, ajustando

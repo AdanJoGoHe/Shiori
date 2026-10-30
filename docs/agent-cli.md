@@ -1,7 +1,7 @@
 # CLI para trabajar con agentes
 
-Estas mejoras están en el código posterior a alpha.5. Para usarlas hace falta instalar una
-versión que las incluya; publicar alpha.5 no actualizó las instalaciones existentes.
+Estas mejoras se preparan para alpha.6 y no están en la release publicada alpha.5. Para usarlas
+hace falta instalar una versión que las incluya y reiniciar la conexión MCP.
 
 En una instalación gestionada de trabajo, usa su propio `shiori.cmd`. En personal, usa el
 Python y el `--config` aprobados de la conexión MCP, como se explica en la guía de actualización.

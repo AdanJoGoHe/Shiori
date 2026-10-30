@@ -37,9 +37,11 @@ separate from `check-local.py`; a unit-test pass does not imply they ran.
 
 ## Current limits
 
-The previous source baseline passed 337 tests with one Windows symlink-privilege skip on Python
-3.12.14, plus clean-wheel and synthetic Edge workflows. Those dated results do not cover later
-source changes automatically. This repository does not claim full stable v1 acceptance,
+The agent-CLI baseline at `346a0db` (2026-10-30) passed 551 local tests with one Windows
+symlink-privilege skip on Python 3.12.14. Its 34 new tests also passed against an installed wheel,
+along with personal/work release verifiers. These results are later than published alpha.5;
+dated evidence in [compatibility](compatibility.md) does not cover later changes automatically.
+This repository does not claim full stable v1 acceptance,
 Claude/Augment real-host integration, physical mobile/IME acceptance, an actual two-device remote
 installation, or upgrade/rollback between two published releases. Hosted Actions are exceptional;
 follow [the manual release procedure](release-workflow.md) when a release is intentionally prepared.

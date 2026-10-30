@@ -130,6 +130,30 @@ def main():
         assert cli("run", "read", candidate["id"]) == before
         assert (root / "data/state/annotations.json").read_bytes() == annotations
 
+        agent_cli = Version(new["version"]) >= Version("0.1.0a6")
+        if agent_cli:
+            assert cli("run", "search", "--id", candidate["id"])["found"]
+            request = dict(
+                candidate=dict(candidate, id="upgrade-cli", event_id="upgrade-cli"),
+                assessment=dict(
+                    material="corporate", reusable=True, meaningful=True, evidence_kind="observed"
+                ),
+            )
+            event.write_text(json.dumps(request), encoding="utf-8")
+            assert cli("run", "note", "--request-file", str(event))["applied"] is False
+            assert not cli("run", "search", "--id", "upgrade-cli")["found"]
+            saved = cli(
+                "run",
+                "note",
+                "--request-file",
+                str(event),
+                "--apply",
+                "--expect-revision",
+                "absent",
+            )
+            assert saved["capture"]["status"] == "saved"
+            assert cli("run", "search", "--id", "upgrade-cli")["found"]
+
         tracking = dict(
             scope="work",
             mode="journal-only",
@@ -164,6 +188,8 @@ def main():
         assert owned.read_bytes() == original_skill
         assert cli("run", "read", candidate["id"]) == before
         assert "Synthetic memory" in cli("run", "read", "after-upgrade")
+        if agent_cli:
+            assert "Synthetic memory" in cli("run", "read", "upgrade-cli")
         assert all(path.read_bytes() == content for path, content in journal.items())
         assert (root / "data/state/annotations.json").read_bytes() == annotations
         # The saved previous environment is reactivated by rollback; update refuses existing dirs.
@@ -187,7 +213,8 @@ def main():
                         "notes-and-marks-preserved",
                         "rollback-preserves-newer-data",
                         "reactivation-preserves-task-state",
-                    ],
+                    ]
+                    + (["agent-cli-preview-apply-after-upgrade"] if agent_cli else []),
                     "data": "synthetic-only",
                 }
             )

@@ -93,6 +93,50 @@ debe fallar. Estas comprobaciones requieren tu IDE; las pruebas de protocolo loc
 La skill consulta antes de trabajar y propone guardar al terminar. Es una instrucción para el
 agente, no un hook que garantice captura automática en todas las conversaciones.
 
+### Lista de aceptación con datos ficticios
+
+Esta lista completa la [tarea #2](https://github.com/AdanJoGoHe/Shiori/issues/2). Hazla dentro
+de Augment, en un proyecto de prueba y una memoria de trabajo nueva. No uses una memoria
+personal ni material real del equipo para probar el rechazo de ámbito.
+
+1. Anota en un informe privado la versión de JetBrains, del plugin y de Shiori
+   (`shiori.cmd status`). Conserva allí los errores detallados y rutas; al repositorio lleva
+   solo versiones y resultados genéricos.
+2. Conecta `shiori_work`, abre una conversación nueva y comprueba que descubre `shiori-work`.
+   Pide `memory_status`: debe decir `scope: work`. Confirma estas diez herramientas:
+   `search_memory`, `get_context`, `read_memory`, `classify_memory`, `capture_memory`,
+   `list_content`, `list_pending_captures`, `memory_status`, `read_journal` y `resume_project`.
+3. Consulta contexto del proyecto ficticio `aceptacion-demo`. Prepara una nota de comando
+   con ID `comando-demo`, un evento nuevo y `source_agent: augment-jetbrains`, cuyo cuerpo sea
+   «Ejemplo ficticio: git --version muestra la versión de Git». Usa `status: unverified`:
+   escribir el ejemplo no demuestra que se haya ejecutado. Clasifica con material `corporate`
+   (ficticio, del perfil de trabajo), `reusable: true`, `meaningful: true` y
+   `evidence_kind: none`. Revisa y envía el candidato devuelto, sin inventar evidencia.
+4. Comprueba `saved`, lee `comando-demo`, repite el mismo evento/candidato y comprueba
+   `duplicate`. Conserva el JSON original privado hasta tener uno de esos resultados.
+   Rechaza una captura con `scope: personal` usando otro ejemplo completamente ficticio;
+   confirma que no creó una nota. No cambies el scope del almacén para hacer esta prueba.
+5. Registra un avance ficticio y una tarea en `aceptacion-demo` con
+   [los campos del diario](diario.md#verlo-y-mantener-los-pendientes). Comprueba `read_journal`
+   y `resume_project`; bloquea, resuelve y reabre la tarea, leyendo su versión antes de cada
+   cambio. Reenviar una versión antigua con un evento nuevo debe fallar sin borrar historial.
+   `read_journal(view="tasks", project="aceptacion-demo")` debe mostrar también los cerrados.
+6. Reinicia la conexión y abre otra conversación. Pide retomar `aceptacion-demo`: deben
+   seguir la nota, el último avance y el estado/versiones de la tarea. Abre también la vista
+   Diario del visor y comprueba el proyecto y su historial.
+7. Cuando haya dos versiones distintas disponibles, detén MCP/visor y sigue la actualización
+   y el rollback de esta guía. Confirma que el comando de Augment sigue estable, la skill
+   propia se refresca y las notas/tareas anteriores y posteriores siguen disponibles.
+   Si no hay una segunda versión comprobable, registra este paso como pendiente.
+
+Para cada paso registra **aprobado**, **fallido** o **pendiente**, con el resultado esperado y
+el observado. Un timeout no demuestra que una captura no se haya guardado: consulta estado y
+pendientes antes de reintentar el JSON original. Usa el CLI de esta misma instalación como
+respaldo. Las mejoras de [CLI de alpha.6](agent-cli.md) requieren un paquete que las incluya;
+alpha.5 ya permite `run status`, `run pending` y `run read comando-demo`.
+
+La tarea se cierra con resultados del IDE real, no por haber ejecutado un cliente MCP sintético.
+
 ## Actualizar con el updater
 
 Desde alpha.3 puedes comprobar y descargar una actualización desde el repositorio oficial,

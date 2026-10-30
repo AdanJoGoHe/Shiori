@@ -1,4 +1,21 @@
-# Compatibility — 2026-10-24
+# Compatibility
+
+## Current status — 2026-10-30
+
+Published release: [alpha.5](https://github.com/AdanJoGoHe/Shiori/releases/tag/v0.1.0-alpha.5).
+Its dated acceptance is recorded below. The agent CLI changes in
+[PR #18](https://github.com/AdanJoGoHe/Shiori/pull/18), commit `346a0db`, are later source:
+551 local tests passed, one native Windows symlink-privilege skip; 34 agent-CLI tests passed
+against the installed wheel. Personal/work verifiers passed with ten MCP tools and synthetic
+data, including the real managed CMD launcher. This does not establish real Augment acceptance
+or make those changes available through the published alpha.5 package.
+
+The Windows local work profile is implemented. Actual JetBrains/plugin acceptance remains
+[issue #2](https://github.com/AdanJoGoHe/Shiori/issues/2), with a
+[manual checklist](augment-trabajo.md#lista-de-aceptacion-con-datos-ficticios).
+No Linux run, actual two-device remote setup or active personal-deployment upgrade is claimed.
+
+## Historical personal-alpha baseline — 2026-10-24
 
 Personal-alpha evidence recorded on 2026-10-24. These observations do not automatically validate later source changes.
 

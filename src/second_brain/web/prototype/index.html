@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es" data-theme="light" data-variant="A">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Prototipo de Shiori con datos ficticios, sin conexión a una memoria.">
+  <title>Shiori · Prototipo del visor</title>
+  <link rel="stylesheet" href="prototype.css">
+  <script src="prototype.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#query">Ir a la búsqueda</a>
+  <div class="app">
+    <aside class="navigation" id="navigation">
+      <div class="identity">
+        <svg class="brand-mark" viewBox="0 0 32 36" fill="none" aria-hidden="true"><path d="M7 3h13l5 5v25l-9-6-9 6V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M20 3v6h5M12 14h8M12 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <div><span class="brand-name">Shiori</span><span class="scope">Memoria de ejemplo</span></div>
+      </div>
+      <button id="menu" class="menu-button" aria-controls="destinations" aria-expanded="false">Menú</button>
+      <nav id="destinations" aria-label="Principal">
+        <a href="#inicio" data-view="inicio">Inicio</a>
+        <a href="#biblioteca" data-view="biblioteca">Biblioteca</a>
+        <a href="#fragmentos" data-view="fragmentos">Fragmentos</a>
+        <a href="#favoritos" data-view="favoritos">Favoritos</a>
+        <a href="#diario" data-view="diario">Diario</a>
+        <a href="#agent-log" data-view="agent-log">Agent log</a>
+      </nav>
+      <div class="nav-foot"><span>Hecho para volver a encontrarlo.</span><small>Datos ficticios. Los cambios duran esta pestaña.</small></div>
+    </aside>
+    <main>
+      <div class="search-area">
+        <label for="query">Buscar en tu memoria</label>
+        <div class="search-line">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.6"/></svg>
+          <input id="query" name="query" type="search" placeholder="Un comando, una página, algo que hiciste…" autocomplete="off" spellcheck="false">
+          <button id="clear-query" aria-label="Limpiar búsqueda">Limpiar</button><kbd>Ctrl K</kbd>
+        </div>
+        <div class="search-options"><span id="search-scope">Todo lo registrado</span><label>Proyecto<select id="project" name="project"><option value="">Todos</option><option value="laboratorio">Laboratorio</option><option value="apuntes">Apuntes</option></select></label><span id="query-count" role="status"></span></div>
+      </div>
+      <div class="canvas" id="canvas" tabindex="-1"></div>
+    </main>
+  </div>
+  <dialog id="detail"><div class="dialog-head"><span id="detail-kind">Página</span><button id="close-detail">Cerrar</button></div><div id="detail-body"></div></dialog>
+  <p class="toast" id="announcement" role="status" aria-live="polite"></p>
+  <footer class="prototype-switcher" aria-label="Comparar prototipos">
+    <span class="prototype-label">Prototipo</span>
+    <div class="variant-switch"><button id="previous-variant" aria-label="Variante anterior">←</button><label class="sr-only" for="variant">Organización</label><select id="variant"><option value="A">A · Mesa de trabajo</option><option value="B">B · Biblioteca abierta</option><option value="C">C · Cuaderno diario</option></select><button id="next-variant" aria-label="Variante siguiente">→</button></div>
+    <label>Tema<select id="theme"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="latte">Café Latte</option></select></label>
+    <label>Escenario<select id="scenario"><option value="full">Completo</option><option value="empty">Vacío</option><option value="loading">Cargando</option><option value="error">Error</option><option value="dense">Abundante</option></select></label>
+  </footer>
+</body>
+</html>

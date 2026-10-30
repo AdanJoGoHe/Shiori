@@ -16,8 +16,9 @@ Abre la dirección local que imprime. Ctrl+C detiene el servidor. Solo sirve tre
 del prototipo y no carga configuración, notas, índice o credenciales de ninguna memoria.
 No requiere instalar dependencias de frontend ni descargar fuentes.
 
-La barra inferior permite comparar las opciones, elegir tema y simular carga, error, ausencia
-de datos o una biblioteca más abundante. Está separada del diseño que se está evaluando.
+Los controles de Prototipo están integrados debajo de la navegación: en la barra lateral de A
+y en una fila de la cabecera de B/C. Permiten comparar las opciones, elegir tema y simular carga,
+error, ausencia de datos o una biblioteca más abundante, sin cubrir el contenido.
 Los favoritos y pendientes cambiados duran solo esta pestaña; recargar reinicia el ejemplo.
 
 ## Tres maneras de organizarlo

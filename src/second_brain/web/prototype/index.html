@@ -25,6 +25,12 @@
         <a href="#diario" data-view="diario">Diario</a>
         <a href="#agent-log" data-view="agent-log">Agent log</a>
       </nav>
+      <section class="prototype-switcher" aria-label="Comparar prototipos">
+        <span class="prototype-label">Prototipo</span>
+        <div class="variant-switch"><button id="previous-variant" aria-label="Variante anterior">←</button><label class="sr-only" for="variant">Organización</label><select id="variant"><option value="A">A · Mesa de trabajo</option><option value="B">B · Biblioteca abierta</option><option value="C">C · Cuaderno diario</option></select><button id="next-variant" aria-label="Variante siguiente">→</button></div>
+        <label>Tema<select id="theme"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="latte">Café Latte</option></select></label>
+        <label>Escenario<select id="scenario"><option value="full">Completo</option><option value="empty">Vacío</option><option value="loading">Cargando</option><option value="error">Error</option><option value="dense">Abundante</option></select></label>
+      </section>
       <div class="nav-foot"><span>Hecho para volver a encontrarlo.</span><small>Datos ficticios. Los cambios duran esta pestaña.</small></div>
     </aside>
     <main>
@@ -42,11 +48,5 @@
   </div>
   <dialog id="detail"><div class="dialog-head"><span id="detail-kind">Página</span><button id="close-detail">Cerrar</button></div><div id="detail-body"></div></dialog>
   <p class="toast" id="announcement" role="status" aria-live="polite"></p>
-  <footer class="prototype-switcher" aria-label="Comparar prototipos">
-    <span class="prototype-label">Prototipo</span>
-    <div class="variant-switch"><button id="previous-variant" aria-label="Variante anterior">←</button><label class="sr-only" for="variant">Organización</label><select id="variant"><option value="A">A · Mesa de trabajo</option><option value="B">B · Biblioteca abierta</option><option value="C">C · Cuaderno diario</option></select><button id="next-variant" aria-label="Variante siguiente">→</button></div>
-    <label>Tema<select id="theme"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="latte">Café Latte</option></select></label>
-    <label>Escenario<select id="scenario"><option value="full">Completo</option><option value="empty">Vacío</option><option value="loading">Cargando</option><option value="error">Error</option><option value="dense">Abundante</option></select></label>
-  </footer>
 </body>
 </html>

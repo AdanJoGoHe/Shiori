@@ -1198,3 +1198,23 @@ a {color:var(--green);text-underline-offset:4px}
 .shortcut[data-identity] {display:inline-flex;align-items:center;gap:6px;color:var(--identity);border-color:var(--identity)}
 .shortcut[data-identity][aria-pressed=true] {color:var(--identity);background:var(--identity-soft);border-color:var(--identity)}
 .shortcut .identity-symbol {font-size:16px}
+
+[data-identity="tareas"] {--identity:#396a68;--identity-soft:#e3efed}
+:root[data-theme="dark"] [data-identity="tareas"] {--identity:#afd0cc;--identity-soft:#273a38}
+:root[data-theme="latte"] [data-identity="tareas"] {--identity-soft:#dce4d9}
+#task-editor {display:flex;flex-direction:column;gap:16px;padding:20px;background:var(--paper);border:1px solid var(--line);margin:12px 0}
+.task-fields {display:flex;flex-wrap:wrap;gap:16px}
+#tasks-panel label,#task-context label,#task-link-panel label {display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink)}
+#tasks-panel input,#tasks-panel textarea,#task-context input,#task-link-panel input {background:var(--paper);border:1px solid var(--strong-line);border-radius:5px;padding:9px;color:var(--ink);max-width:100%;min-width:0}
+#task-body {width:100%;resize:vertical;font:inherit;line-height:1.6}
+#task-key {text-transform:uppercase}
+#task-context,#task-link-panel {border-block:1px solid var(--line);padding:12px 0;margin:16px 0;font-size:13px;line-height:1.7}
+.task-link-row {display:flex;align-items:center;justify-content:space-between;gap:12px;overflow-wrap:anywhere;margin:8px 0}
+.task-link-row>button:first-child {text-align:left;min-width:0}
+#task-web-form,#task-link-form {display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:12px 0}
+#task-web-form label,#task-link-form label {flex:1;min-width:160px}
+#task-message,#task-link-message {font-size:13px;line-height:1.6;color:var(--green)}
+
+body[data-screen="tareas"] .result h3 {font-size:16px}
+body[data-screen="tareas"] .result p {font-size:14px}
+body[data-screen="tareas"] :is(.result .kind,.result .result-foot,.results-heading h2,.results-heading span,.basic-filters label,.metadata-label,.tag,.quiet) {font-size:13px}

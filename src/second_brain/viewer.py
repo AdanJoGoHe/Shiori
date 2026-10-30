@@ -19,6 +19,7 @@ from second_brain.annotations import COLORS, Annotations, Conflict, resolve_anch
 from second_brain.catalog import Catalog, catalog_diagnostics
 from second_brain.core import SLUG, safe_text
 from second_brain.workflow import JournalConflict
+from second_brain.task_pages import TaskPages, task_key
 
 
 def normalized(text):
@@ -130,6 +131,7 @@ class Viewer:
     def __init__(self, brain):
         self.catalog = Catalog(brain)
         self.annotations = Annotations(brain)
+        self.tasks = TaskPages(brain)
         self.undo_lock = threading.Lock()
         self.deleted = None
 
@@ -204,7 +206,10 @@ class Viewer:
                 permitted = (
                     mark_kind == "documentation"
                     and mark_source in self.catalog.brain.config.get("documentation_roots", {})
-                ) or (mark_kind in {"note", "journal"} and mark_source == self.catalog.brain.scope)
+                ) or (
+                    mark_kind in {"note", "journal", "task"}
+                    and mark_source == self.catalog.brain.scope
+                )
                 if (
                     not permitted
                     or (kind and kind != mark_kind)
@@ -519,6 +524,26 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     files("second_brain").joinpath("web", name).read_bytes(),
                     mime + "; charset=utf-8",
                 )
+            elif route == "api/tasks":
+                args = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=1)
+                if set(args) != {"key"} or len(args["key"]) != 1:
+                    raise ValueError("An exact task code is required")
+                item = self.server.viewer.tasks.read(task_key(args["key"][0]))
+                rows = self.server.viewer.catalog.snapshot()["items"]
+                allowed = {row["id"] for row in rows}
+                marks = self.server.viewer.annotations.export()["items"]
+                links = []
+                for link in item["links"]:
+                    external = urlsplit(link["target"]).scheme in {"http", "https"}
+                    available = external or link["target"] in allowed
+                    if link["annotation_id"]:
+                        available = available and any(
+                            mark["id"] == link["annotation_id"]
+                            and mark["document_id"] == link["target"]
+                            for mark in marks
+                        )
+                    links.append({**link, "available": available, "external": external})
+                self.reply(200, {"item": item, "links": links})
             elif route == "api/viewer-info":
                 if parsed.query:
                     raise ValueError("Viewer info takes no parameters")
@@ -587,18 +612,20 @@ class ViewerHandler(BaseHTTPRequestHandler):
         category_route = parsed.path == self.server.prefix + "/api/categories"
         undo_route = parsed.path == self.server.prefix + "/api/annotations/undo"
         journal_route = parsed.path == self.server.prefix + "/api/journal"
+        tasks_route = parsed.path == self.server.prefix + "/api/tasks"
         if (
             parsed.path != self.server.prefix + "/api/annotations"
             and not category_route
             and not undo_route
             and not journal_route
+            and not tasks_route
         ) or len(self.path) > 5000:
             self.deny_write()
             return
         if category_route and self.command == "DELETE":
             self.deny_write()
             return
-        if (undo_route or journal_route) and self.command != "POST":
+        if (undo_route or journal_route or tasks_route) and self.command != "POST":
             self.deny_write()
             return
         if not self.authorized(write=True):
@@ -628,7 +655,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
                 or len(lengths) != 1
                 or not lengths[0].isascii()
                 or not lengths[0].isdigit()
-                or not 0 < int(lengths[0]) <= 24000
+                or not 0 < int(lengths[0]) <= (400000 if tasks_route else 24000)
             ):
                 raise ValueError("A bounded JSON body is required")
             self.connection.settimeout(3)
@@ -636,7 +663,29 @@ class ViewerHandler(BaseHTTPRequestHandler):
             if len(raw) != int(lengths[0]):
                 raise ValueError("Incomplete JSON body")
             payload = json.loads(raw.decode("utf-8"))
-            if journal_route:
+            if tasks_route:
+                if not isinstance(payload, dict):
+                    raise ValueError("Task payload must be an object")
+                existing = {row["id"] for row in self.server.viewer.catalog.snapshot()["items"]}
+                marks = self.server.viewer.annotations.export()["items"]
+                old_links = []
+                if payload.get("version"):
+                    old_links = self.server.viewer.tasks.read(payload.get("key"))["links"]
+                for link in payload.get("links", []):
+                    if link in old_links:
+                        continue
+                    if not isinstance(link, dict):
+                        raise ValueError("Invalid task link")
+                    target = link.get("target", "")
+                    if urlsplit(target).scheme not in {"http", "https"} and target not in existing:
+                        raise ValueError("Link destination is not available")
+                    if link.get("annotation_id") and not any(
+                        mark["id"] == link["annotation_id"] and mark["document_id"] == target
+                        for mark in marks
+                    ):
+                        raise ValueError("Fragment is not available")
+                result = self.server.viewer.tasks.save(payload)
+            elif journal_route:
                 brain = self.server.viewer.catalog.brain
                 if (
                     not isinstance(payload, dict)

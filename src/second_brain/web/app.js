@@ -10,9 +10,11 @@ $("theme").onchange = () => {
 const names = {
   documentation: "Documentación",
   note: "Conocimiento",
-  journal: "Diario"
+  journal: "Diario",
+  task: "Tarea"
 };
 const labels = {
+  open: "Abierta", "in-progress": "En curso", blocked: "Bloqueada", done: "Terminada",
   verified: "Verificado",
   unverified: "Sin verificar",
   draft: "Borrador",
@@ -53,6 +55,7 @@ function element(tag, text, className) {
 const identities = {
   inicio: ["🗂", "inicio"], biblioteca: ["📚", "biblioteca"], fragmentos: ["🏷", "fragmentos"], // taste-skill-ignore: owner-requested identity symbols.
   favoritos: ["🔖", "favoritos"], diario: ["📓", "diario"], "agent-log": ["📋", "agent-log"], // taste-skill-ignore: owner-requested identity symbols.
+  tareas: ["🗒", "tareas"], task: ["🗒", "tareas"], // taste-skill-ignore: owner-requested identity symbols.
   documentation: ["📄", "biblioteca"], note: ["📘", "biblioteca"], journal: ["📓", "diario"], // taste-skill-ignore: owner-requested identity symbols.
   comando: ["⌨", "inicio"], "direccion-ip": ["🌐", "biblioteca"], ruta: ["📂", "diario"], // taste-skill-ignore: owner-requested identity symbols.
   "informacion-importante": ["📌", "fragmentos"] // taste-skill-ignore: owner-requested identity symbols.
@@ -71,6 +74,7 @@ const screens = {
   biblioteca: ["Biblioteca", "Documentación y conocimiento, con su contexto."],
   fragmentos: ["Fragmentos", "Comandos, IPs, rutas y textos importantes, listos para recuperar."],
   diario: ["Diario", "Lo que avanzaste y el siguiente paso para retomarlo."],
+  tareas: ["Tareas", "El contexto de cada incidencia, a mano."],
   favoritos: ["Favoritos", "Tus páginas a mano."],
   "agent-log": ["Agent log", "Las acciones del agente, con su resultado."]
 };
@@ -91,9 +95,10 @@ function resetReader() {
   state.selected = null; state.markId = null;
   document.body.classList.remove("reading");
   $("reader-empty").hidden = false; $("reader-content").hidden = true;
+  $("task-context").hidden = true;
 }
 function showScreen() {
-  const screen = state.screen, library = ["biblioteca", "fragmentos"].includes(screen);
+  const screen = state.screen, library = ["biblioteca", "fragmentos", "tareas"].includes(screen);
   document.body.dataset.screen = screen;
   document.querySelector(".masthead").dataset.identity = screen;
   $("screen-symbol").textContent = identities[screen][0];
@@ -101,6 +106,7 @@ function showScreen() {
   document.querySelector(".subtitle").textContent = screens[screen][1];
   document.title = "Shiori · " + screens[screen][0];
   $("home-panel").hidden = screen !== "inicio";
+  $("tasks-panel").hidden = screen !== "tareas";
   $("upcoming-panel").hidden = !["favoritos", "agent-log"].includes(screen);
   document.querySelector(".toolbar").hidden = !library;
   $("category-manager").hidden = !library;
@@ -109,7 +115,7 @@ function showScreen() {
   $("fragment-filters").hidden = !fragments;
   $("fragment-color-wrap").hidden = !fragments;
   $("fragment-shortcuts").hidden = !fragments;
-  $("search-context").textContent = fragments ? "Texto marcado y categorías" : "Documentación y conocimiento";
+  $("search-context").textContent = fragments ? "Texto marcado y categorías" : state.kind === "task" ? "Fichas de tareas" : "Documentación y conocimiento";
   for (const button of document.querySelectorAll(".destination")) {
     button.classList.toggle("active", button.dataset.screen === screen);
     if (button.dataset.screen === screen) button.setAttribute("aria-current", "page");
@@ -123,7 +129,7 @@ async function navigate(screen, kind = "", record = true) {
   clearTimeout(timer);
   if (record) remember();
   resetReader();
-  state.screen = screen; state.kind = screen === "diario" ? "journal" : kind;
+  state.screen = screen; state.kind = screen === "diario" ? "journal" : screen === "tareas" ? "task" : kind;
   state.offset = 0; state.tags = []; state.categories = [];
   $("fragment-color").value = "";
   for (const key of filterKeys) $(key).value = key === "sort" ? "relevance" : "";
@@ -170,7 +176,7 @@ function activeFilters() {
     button.onclick = () => { remove(); state.offset = 0; load(); };
     target.append(button);
   };
-  if (state.kind) chip(names[state.kind], () => { state.kind = ""; });
+  if (state.kind && state.screen !== "tareas") chip(names[state.kind], () => { state.kind = ""; });
   if ($("search").value) chip("Texto: " + $("search").value, () => { $("search").value = ""; });
   for (const key of filterKeys) {
     const input = $(key);
@@ -489,7 +495,7 @@ async function load() {
     const incomplete = ["partial", "limited", "unavailable"].includes(data.diagnostics.status);
     $("count").textContent = data.result_state === "unavailable" ? "No disponible" :
       data.total + " resultado" + (data.total === 1 ? "" : "s") + (incomplete ? " · incompletos" : "");
-    $("collection-title").textContent = fragments ? "Fragmentos marcados" : names[state.kind] || "Todo el contenido";
+    $("collection-title").textContent = fragments ? "Fragmentos marcados" : state.kind === "task" ? "Tareas" : names[state.kind] || "Todo el contenido";
     $("page").textContent = data.total ? `${state.offset+1}–${Math.min(state.offset+20,data.total)}` : "";
     $("prev").disabled = state.offset === 0;
     $("next").disabled = state.next === null;
@@ -497,7 +503,7 @@ async function load() {
     results.replaceChildren();
     if (!data.items.length) {
       const messages = {
-        "empty-catalog": "La colección seleccionada está vacía. Añade notas o configura una fuente de documentación.",
+        "empty-catalog": state.kind === "task" ? "Todavía no hay tareas. Pulsa Nueva tarea para reunir el contexto de tu primera incidencia." : "La colección seleccionada está vacía. Añade notas o configura una fuente de documentación.",
         "no-matches": fragments ? "No hay fragmentos marcados con estos filtros. Marca texto en un documento o cambia la selección." : "No hay resultados con estos filtros. Prueba otro término o limpia la selección.",
         unavailable: "No se pudo leer el contenido. Consulta el aviso de diagnóstico y reintenta la lectura.",
         partial: "No hay coincidencias entre el contenido que se pudo leer. La búsqueda está incompleta.",
@@ -532,6 +538,10 @@ async function openItem(id, markId = null, record = true) {
   $("reader-empty").hidden = true;
   $("reader-content").hidden = false;
   $("reader-title").textContent = "Cargando documento…";
+  $("task-context").hidden = true;
+  $("task-link-message").textContent = "";
+  $("task-link-panel").open = false;
+  $("task-resources").open = false;
   $("reader-body").replaceChildren();
   try {
     const data = await api("api/content?" + new URLSearchParams({
@@ -578,6 +588,8 @@ async function openItem(id, markId = null, record = true) {
       button.classList.toggle("active", button.dataset.id === id);
       button.setAttribute("aria-pressed", String(button.dataset.id === id));
     }
+    await taskContext(item, number);
+    if (number !== readerNumber) return;
     if (markId) readerMarks.focusMark(markId);
     else $("reader-title").focus();
   } catch (error) {
@@ -645,7 +657,7 @@ $("search").oninput = () => {
   clearTimeout(timer);
   state.offset = 0;
   timer = setTimeout(() => {
-    if (!["biblioteca", "fragmentos"].includes(state.screen)) navigate($("view").value === "fragments" ? "fragmentos" : "biblioteca");
+    if (!["biblioteca", "fragmentos", "tareas"].includes(state.screen)) navigate($("view").value === "fragments" ? "fragmentos" : "biblioteca");
     else load();
   }, 250);
 };
@@ -654,7 +666,7 @@ for (const key of filterKeys) $(key).onchange = () => {
   load();
 };
 $("view").onchange = () => {
-  const target = $("view").value === "fragments" ? "fragmentos" : "biblioteca";
+  const target = $("view").value === "fragments" ? "fragmentos" : state.kind === "task" ? "tareas" : "biblioteca";
   $("view").value = state.screen === "fragmentos" ? "fragments" : "documents";
   navigate(target, state.kind === "journal" ? "" : state.kind);
 };
@@ -689,10 +701,113 @@ $("next").onclick = () => {
 $("back").onclick = () => {
   history.back();
 };
+let editingTask = null, openedTask = null;
+const taskPayload = item => Object.fromEntries(["key", "title", "body", "status", "project", "tags", "links", "version"].map(key => [key, item[key]]));
+function editTask(item = null) {
+  editingTask = item;
+  $("task-editor").hidden = false;
+  $("task-editor-title").textContent = item ? "Editar " + item.key : "Nueva tarea";
+  for (const key of ["key", "title", "body", "status", "project"])
+    $("task-" + key).value = item?.[key] || (key === "status" ? "open" : "");
+  $("task-key").readOnly = Boolean(item);
+  $("task-tags").value = (item?.tags || []).join(", ");
+  $("task-message").textContent = "";
+  $(item ? "task-title" : "task-key").focus();
+}
+async function taskContext(item, number) {
+  openedTask = null;
+  $("task-context").hidden = true;
+  if (item.kind !== "task") return;
+  try {
+    const data = await api("api/tasks?" + new URLSearchParams({key: item.path}));
+    if (number !== readerNumber) return;
+    openedTask = data.item;
+    $("task-resources-summary").textContent = "Vínculos de esta tarea · " + data.links.length;
+    $("task-context").hidden = false;
+    const list = $("task-links"); list.replaceChildren();
+    for (const link of data.links) {
+      const row = element("div", undefined, "task-link-row");
+      if (link.external) {
+        const anchor = element("a", link.label + " ↗"); anchor.href = link.target;
+        anchor.target = "_blank"; anchor.rel = "noopener noreferrer"; row.append(anchor);
+      } else {
+        const open = element("button", link.label + (link.available ? "" : " · no disponible"), "quiet");
+        open.type = "button"; open.disabled = !link.available;
+        open.onclick = () => openItem(link.target, link.annotation_id); row.append(open);
+      }
+      const remove = element("button", "Quitar vínculo", "quiet");
+      remove.type = "button";
+      remove.onclick = async () => {
+        remove.disabled = true;
+        try {
+          await api("api/tasks", "POST", {...taskPayload(data.item), links: data.item.links.filter(value => !(value.target === link.target && value.annotation_id === link.annotation_id))});
+          if (number === readerNumber) await taskContext(item, number);
+        } catch (error) { $("task-link-message").textContent = error.message; }
+        finally { remove.disabled = false; }
+      };
+      row.append(remove); list.append(row);
+    }
+    if (!data.links.length) list.append(element("p", "Todavía no hay vínculos guardados."));
+  } catch (error) { $("task-link-message").textContent = "No se pudo leer la ficha. " + error.message; }
+}
+$("task-new").onclick = () => editTask();
+$("task-cancel").onclick = () => { $("task-editor").hidden = true; };
+$("task-edit").onclick = async () => {
+  const item = openedTask;
+  if (!item) return;
+  if (state.screen !== "tareas") await navigate("tareas");
+  editTask(item);
+};
+$("task-editor").onsubmit = async event => {
+  event.preventDefault(); const button = event.submitter; button.disabled = true;
+  const payload = {key: $("task-key").value, title: $("task-title").value, body: $("task-body").value,
+    status: $("task-status").value, project: $("task-project").value || null,
+    tags: $("task-tags").value.split(",").map(value => value.trim()).filter(Boolean),
+    links: editingTask?.links || [], version: editingTask?.version || 0};
+  $("task-message").textContent = "Guardando…";
+  try {
+    const item = await api("api/tasks", "POST", payload);
+    editingTask = item;
+    $("task-message").textContent = "Tarea guardada.";
+    $("task-editor").hidden = true;
+    if (state.screen === "tareas") { await load(); await openItem("task:" + deployment.scope + ":" + item.key); }
+  } catch (error) { $("task-message").textContent = error.status === 409 ? "La tarea cambió. Abre su versión actual antes de guardar; tu texto sigue en el formulario." : error.message; }
+  finally { button.disabled = false; }
+};
+$("task-link-panel").ontoggle = () => {
+  if (!$("task-link-panel").open) return;
+  const select = $("task-link-selection"); select.replaceChildren(new Option("Esta página", ""));
+  for (const mark of readerMarks.items) select.add(new Option("Fragmento: " + (mark.title || mark.quote.slice(0, 90)), mark.id));
+};
+$("task-link-form").onsubmit = async event => {
+  event.preventDefault(); const button = event.submitter; button.disabled = true;
+  const doc = readerMarks.doc?.item, selected = $("task-link-selection").value;
+  if (!doc) { button.disabled = false; return; }
+  try {
+    const data = await api("api/tasks?" + new URLSearchParams({key: $("task-link-key").value}));
+    const mark = readerMarks.items.find(row => row.id === selected);
+    const link = {target: doc.id, annotation_id: selected || null, label: mark ? (mark.title || mark.quote.slice(0, 120)) : doc.title};
+    const links = data.item.links.some(value => value.target === link.target && value.annotation_id === link.annotation_id) ? data.item.links : [...data.item.links, link];
+    await api("api/tasks", "POST", {...taskPayload(data.item), links});
+    $("task-link-message").textContent = "Vínculo guardado en " + data.item.key + ".";
+    if (openedTask?.key === data.item.key) await taskContext(doc, readerNumber);
+  } catch (error) { $("task-link-message").textContent = "No se guardó el vínculo. Comprueba el código y actualiza si la tarea cambió. " + error.message; }
+  finally { button.disabled = false; }
+};
+$("task-web-form").onsubmit = async event => {
+  event.preventDefault(); const button = event.submitter, item = openedTask;
+  if (!item) return; button.disabled = true;
+  try {
+    await api("api/tasks", "POST", {...taskPayload(item), links: [...item.links, {target: $("task-web-url").value, annotation_id: null, label: $("task-web-label").value}]});
+    $("task-web-form").reset();
+    if (openedTask?.key === item.key) await taskContext(readerMarks.doc.item, readerNumber);
+  } catch (error) { $("task-link-message").textContent = error.message; }
+  finally { button.disabled = false; }
+};
 readerMarks = new ReaderMarks();
 const initialScreen = location.hash.slice(1);
 state.screen = screens[initialScreen] ? initialScreen : "inicio";
-state.kind = state.screen === "diario" ? "journal" : "";
+state.kind = state.screen === "diario" ? "journal" : state.screen === "tareas" ? "task" : "";
 $("view").value = state.screen === "fragmentos" ? "fragments" : "documents";
 viewerInfo().catch(() => { $("memory-scope").textContent = "Ámbito no disponible"; });
 load();

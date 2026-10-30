@@ -1,6 +1,7 @@
 """Desktop workspace acceptance on disposable data, with no deployment configuration."""
 
 import json
+import argparse
 import os
 import shutil
 import subprocess
@@ -15,6 +16,9 @@ from second_brain.viewer import ViewerServer
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task-pages", action="store_true")
+    args = parser.parse_args()
     node = os.environ.get("SB_TEST_NODE") or shutil.which("node")
     if not node:
         raise SystemExit("Node and Playwright are required for this optional check")
@@ -91,7 +95,14 @@ def main():
                 thread.start()
                 try:
                     result = subprocess.run(
-                        [node, str(Path(__file__).with_suffix(".cjs"))],
+                        [
+                            node,
+                            str(
+                                Path(__file__).with_name("check-task-workflow.cjs")
+                                if args.task_pages
+                                else Path(__file__).with_suffix(".cjs")
+                            ),
+                        ],
                         input=json.dumps(
                             dict(
                                 url=server.url,
@@ -110,7 +121,12 @@ def main():
                             result.stderr.replace(server.url, "<synthetic-viewer>/")
                         )
                     reports.append(json.loads(result.stdout))
-                    assert all(path.read_bytes() == content for path, content in before.items())
+                    assert all(
+                        path.read_bytes() == content
+                        for path, content in before.items()
+                        if not args.task_pages
+                        or path.name not in {"annotations.json", "annotations.previous.json"}
+                    )
                 finally:
                     server.shutdown()
                     thread.join(5)

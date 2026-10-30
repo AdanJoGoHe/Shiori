@@ -97,6 +97,7 @@ def import_memory(brain, source, apply=False):
                 "source-journals",
                 "history",
                 "annotations",
+                "task-pages",
                 "source-events",
                 "configuration",
             ],

@@ -383,6 +383,41 @@ anterior; no crea otra memoria para ocultar el fallo. Véase [rutas Windows/MSIX
 El visor distingue una colección vacía, filtros sin coincidencias y fallos de lectura; conserva
 los resultados parciales y permite reintentar. [Estados, códigos y pruebas de paridad](catalog-diagnostics.md).
 
+## Tareas: contexto por incidencia
+
+Abre **Tareas** en el menú lateral y pulsa **Nueva tarea**. Introduce un código como `DEMO-1234`,
+un título y tus notas. El código se guarda en mayúsculas; no se renombra al editar la ficha.
+Puedes añadir proyecto, etiquetas y estado: Abierta, En curso, Bloqueada o Terminada.
+
+El cuerpo admite Markdown y usa el mismo lector que la biblioteca. Guarda ahí comandos, IPs,
+rutas o resultados y márcalos con colores y categorías. Los textos marcados se recuperan en
+**Fragmentos**, con copia exacta y contexto. Para editar el cuerpo, usa **Editar tarea**.
+
+Desde cualquier página del lector, abre **Vincular a una tarea**, escribe su código y elige
+**Esta página** o una de sus marcas guardadas. Se guarda una referencia al contenido original;
+no una copia. En la ficha, **Vínculos de esta tarea** reúne esas referencias y permite añadir
+URLs HTTP(S). Los enlaces web se abren al pulsarlos; no se descargan ni indexan automáticamente.
+Un destino desaparecido se muestra como no disponible y puedes quitar su vínculo.
+
+Para consultar una ficha desde un agente con acceso al CLI del mismo perfil:
+
+```powershell
+brain task list
+brain task read DEMO-1234 --format text
+brain catalog --kind task
+```
+
+`task read` usa el código exacto y, sin `--format text`, devuelve también estado, etiquetas y
+vínculos en JSON. El catálogo MCP puede listar metadatos de tipo `task`; esta entrega no añade
+herramientas MCP para editar fichas. Las notas de una tarea son contexto registrado, no conocimiento
+verificado. Tampoco sustituyen los pendientes con historial del Diario ni se sincronizan con un
+gestor externo. Se guardan en el perfil abierto: trabajo y personal siguen separados.
+
+Backup/restauración incluye las fichas y sus marcas; la importación agregativa de notas no incluye
+fichas. Los backups con estos datos requieren una versión que los entienda. El runtime actualizado
+rechaza activar una versión anterior sin soporte de fichas cuando encuentra su almacén.
+[Detalles y límites](task-pages.md).
+
 ## Biblioteca visual y anotaciones
 
 ```powershell

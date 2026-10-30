@@ -52,6 +52,7 @@ Cada destino mantiene una identidad discreta en menú, cabeceras y etiquetas de 
 | Favoritos | 🔖 | Ciruela |
 | Diario | 📓 | Tierra |
 | Agent log | 📋 | Gris azulado |
+| Tareas | 🗒 | Verde petróleo suave |
 
 Los accesos a comandos, IPs, rutas e información importante también llevan símbolos. Los emojis
 se muestran con saturación reducida y siempre acompañan al texto; se ocultan al lector de pantalla
@@ -64,6 +65,12 @@ El marco tiene un menú de 224 px, un ancho total máximo de 1680 px y márgenes
 36 px; Inicio reparte su contenido 3:2 con un espacio de 24 px. Las columnas crecen según sus
 datos. El lector comparte la pantalla con resultados en escritorio y conserva vuelta directa.
 El reflujo estrecho sirve al zoom de escritorio; esta entrega no incluye aceptación móvil.
+
+## Fichas por tarea
+
+El menú **Tareas** añade contexto por código, con cuerpo Markdown, estados y vínculos a páginas,
+marcas y URLs. Reutiliza las anotaciones y el lector. No sustituye los pendientes del Diario ni
+convierte su contenido en conocimiento verificado. [Uso y contratos](task-pages.md).
 
 ## Comprobarlo
 
@@ -81,6 +88,7 @@ Playwright disponibles; `SB_TEST_NODE` y `NODE_PATH` pueden seleccionar instalac
 
 ```powershell
 python scripts/check-workspace-workflow.py
+python scripts/check-workspace-workflow.py --task-pages
 python scripts/check-annotation-workflow.py
 python scripts/check-journal-workflow.py
 ```

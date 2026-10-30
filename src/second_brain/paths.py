@@ -132,6 +132,7 @@ def plan(config_path, overrides):
             "ledger.json",
             "annotations.json",
             "annotations.previous.json",
+            "task-pages.json",
             "install-manifest.json",
             "paused",
         ]

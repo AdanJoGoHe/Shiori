@@ -9,7 +9,7 @@ import yaml
 
 from second_brain.core import SLUG, TYPES, note_metadata, safe_text, scoped_path
 
-KINDS = {"documentation", "note", "journal"}
+KINDS = {"documentation", "note", "journal", "task"}
 EXCLUDED = {"archive", "archives", "backups", "runtime", "local", "node_modules", "__pycache__"}
 PRIVATE_FILES = {"credentials", "secrets", "passwords", "tokens"}
 METADATA = [
@@ -59,6 +59,11 @@ def catalog_diagnostics(rows, errors, truncated, collections, registered_notes=N
         "sources": sources,
         "codes": sorted(codes),
     }
+
+
+class CatalogSnapshot(dict):
+    # Request-local records keep task scans linear without exposing bodies in metadata JSON.
+    task_records = None
 
 
 class Catalog:
@@ -151,6 +156,7 @@ class Catalog:
         if source is not None and source not in {self.brain.scope, *roots}:
             raise ValueError("Unknown catalog source")
         rows, errors = [], []
+        task_records = {}
         collections = set()
         registered_notes = None
         visited = 0
@@ -250,6 +256,21 @@ class Catalog:
                             append(root, relative, "journal", self.brain.scope)
                 except (OSError, ValueError):
                     error("journal", self.brain.scope, "unavailable")
+        if source in (None, self.brain.scope) and kind in (None, "task"):
+            from second_brain.task_pages import TaskPages
+
+            if kind == "task" or scoped_path(self.brain.state, "task-pages.json").exists():
+                collections.add(("task", self.brain.scope))
+                try:
+                    store = TaskPages(self.brain)
+                    records = store.export()["items"]
+                    task_records = {item["key"]: item for item in records}
+                    for row in store.rows(records):
+                        if not reserve("task", self.brain.scope):
+                            break
+                        rows.append(row)
+                except (OSError, ValueError, TypeError, KeyError, RecursionError):
+                    error("task", self.brain.scope, "invalid-content")
         rows.sort(key=lambda row: (row["kind"], row["source"], row["path"]))
         diagnostics = catalog_diagnostics(rows, errors, truncated, collections, registered_notes)
         try:
@@ -258,12 +279,16 @@ class Catalog:
             ).hexdigest()[:16]
         except (OSError, ValueError):
             diagnostics["store_id"] = None
-        return {
-            "items": rows,
-            "errors": errors,
-            "truncated": truncated,
-            "diagnostics": diagnostics,
-        }
+        result = CatalogSnapshot(
+            {
+                "items": rows,
+                "errors": errors,
+                "truncated": truncated,
+                "diagnostics": diagnostics,
+            }
+        )
+        result.task_records = task_records
+        return result
 
     def list(self, kind=None, source=None, offset=0, limit=25):
         if type(offset) is not int or not 0 <= offset <= self.MAX_ENTRIES:
@@ -282,7 +307,8 @@ class Catalog:
     def read(self, content_id, snapshot=None):
         """Resolve only currently cataloged IDs; callers never choose filesystem paths."""
         safe_text(content_id, 2000)
-        rows = (snapshot if snapshot is not None else self.snapshot())["items"]
+        snapshot = snapshot if snapshot is not None else self.snapshot()
+        rows = snapshot["items"]
         row = next((item for item in rows if item["id"] == content_id), None)
         if row is None:
             raise ValueError("Content is not available in the catalog")
@@ -291,6 +317,15 @@ class Catalog:
             content = self._content(root, row["path"])
         elif row["kind"] == "note":
             content = self._content(self.brain.vault, row["path"], content_id.split(":", 2)[2])
+        elif row["kind"] == "task":
+            from second_brain.task_pages import TaskPages
+
+            records = getattr(snapshot, "task_records", None)
+            content = (
+                TaskPages.markdown(records[row["path"]])
+                if records is not None
+                else TaskPages(self.brain).content(row["path"])
+            )
         else:
             content = self._content(self.brain.path("journal"), row["path"])
         return row, content

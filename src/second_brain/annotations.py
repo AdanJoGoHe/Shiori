@@ -163,7 +163,7 @@ def validate(item, *, metadata=True):
     if not isinstance(item["id"], str) or not re.fullmatch(r"[a-f0-9]{32}", item["id"]):
         raise ValueError("Invalid annotation ID")
     document = safe_text(item["document_id"], 2000).split(":", 2)
-    if len(document) != 3 or document[0] not in {"documentation", "note", "journal"}:
+    if len(document) != 3 or document[0] not in {"documentation", "note", "journal", "task"}:
         raise ValueError("Invalid document ID")
     if not SLUG.fullmatch(document[1]) or not document[2]:
         raise ValueError("Invalid document source")

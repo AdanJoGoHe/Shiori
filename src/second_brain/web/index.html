@@ -29,14 +29,14 @@
     <div class="search-options"><label>Buscar en<select id="view"><option value="documents">Documentos</option><option value="fragments">Fragmentos marcados</option></select></label><span id="search-context">Documentación y conocimiento</span></div>
     <p id="copy-message" role="status" aria-live="polite"></p>
   </section>
-  <header class="masthead"><div><h1 tabindex="-1">Inicio</h1><p class="subtitle">Lo que quieres tener a mano.</p></div><button id="refresh" class="quiet">Actualizar</button></header>
+  <header class="masthead"><div><div class="title-line"><span id="screen-symbol" class="identity-symbol" aria-hidden="true"></span><h1 tabindex="-1">Inicio</h1></div><p class="subtitle">Lo que quieres tener a mano.</p></div><button id="refresh" class="quiet">Actualizar</button></header>
   <section id="home-panel" hidden aria-label="Tu mesa de trabajo">
     <div class="home-grid">
-      <div class="home-column"><section class="home-fragments"><div class="panel-heading"><h2>Textos importantes</h2><button class="quiet" data-go="fragmentos">Ver fragmentos</button></div><div id="home-shortcuts" class="fragment-shortcuts" aria-label="Accesos a fragmentos"></div><div id="home-fragments" aria-live="polite"></div></section>
-      <section><div class="panel-heading"><h2>Páginas recientes</h2><button class="quiet" data-go="biblioteca">Biblioteca</button></div><div id="home-pages" aria-live="polite"></div></section>
+      <div class="home-column"><section class="home-fragments"><div class="panel-heading"><h2 data-identity-key="fragmentos">Textos importantes</h2><button class="quiet" data-go="fragmentos">Ver fragmentos</button></div><div id="home-shortcuts" class="fragment-shortcuts" aria-label="Accesos a fragmentos"></div><div id="home-fragments" aria-live="polite"></div></section>
+      <section><div class="panel-heading"><h2 data-identity-key="biblioteca">Páginas recientes</h2><button class="quiet" data-go="biblioteca">Biblioteca</button></div><div id="home-pages" aria-live="polite"></div></section>
       </div><div class="home-column">
-      <section><div class="panel-heading"><h2>Hoy en tu diario</h2><button class="quiet" data-go="diario">Abrir diario</button></div><div id="home-journal" aria-live="polite"></div></section>
-      <section class="upcoming"><h2>Favoritos y Agent log</h2><p>Guardar páginas a mano y consultar las acciones del agente son las siguientes mejoras. Todavía no están disponibles.</p><button class="quiet" data-go="favoritos">Ver qué falta</button></section>
+      <section><div class="panel-heading"><h2 data-identity-key="diario">Hoy en tu diario</h2><button class="quiet" data-go="diario">Abrir diario</button></div><div id="home-journal" aria-live="polite"></div></section>
+      <section class="upcoming"><h2 data-identity-key="favoritos">Favoritos y Agent log</h2><p>Guardar páginas a mano y consultar las acciones del agente son las siguientes mejoras. Todavía no están disponibles.</p><button class="quiet" data-go="favoritos">Ver qué falta</button></section>
       </div>
     </div>
   </section>

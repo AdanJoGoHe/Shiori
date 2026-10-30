@@ -42,6 +42,22 @@ Seguimos la dirección Taste **Editorial greeting**, manteniendo la paleta y tip
 producto y la composición del prototipo A. La pregunta de Inicio es «¿qué quiero recuperar y qué
 avancé hoy?». Biblioteca responde «¿dónde está esta página?»; Fragmentos, «¿cuál era ese comando?».
 El marcador de Shiori identifica el producto, y las citas reales son el elemento principal.
+Cada destino mantiene una identidad discreta en menú, cabeceras y etiquetas de resultados:
+
+| Destino | Símbolo | Acento |
+| --- | --- | --- |
+| Inicio | 🗂 | Verde salvia |
+| Biblioteca | 📚 | Azul pizarra |
+| Fragmentos | 🏷 | Ocre |
+| Favoritos | 🔖 | Ciruela |
+| Diario | 📓 | Tierra |
+| Agent log | 📋 | Gris azulado |
+
+Los accesos a comandos, IPs, rutas e información importante también llevan símbolos. Los emojis
+se muestran con saturación reducida y siempre acompañan al texto; se ocultan al lector de pantalla
+para no repetir el nombre. El dibujo concreto depende de las fuentes del sistema. Los acentos
+identifican destinos, no estados de verificación, y no cambian los colores de las marcas guardadas.
+Oscuro usa pares de tinta/fondo propios; Claro y Café Latte conservan tonos oscuros legibles.
 No hay métricas inventadas, fuentes remotas, controles flotantes ni cambio de framework.
 
 El marco tiene un menú de 224 px, un ancho total máximo de 1680 px y márgenes de contenido de
@@ -75,8 +91,11 @@ sección y catálogos parciales. Revisa 1280/1440/1920 y tres temas. Los otros r
 marcas, reparación, reinicio, categorías y pendientes existentes. Todo usa datos ficticios;
 las capturas quedan en carpetas temporales fuera del repositorio.
 
-La revisión Taste del visor usa `--app`. En la demo, `--allow emoji` conserva un carácter Unicode
-que forma parte del comando de prueba; no es decoración de la interfaz. El aviso estático sobre
+La revisión Taste del visor usa `--app`. La opción `--allow emoji` respeta la identidad por símbolos solicitada por el propietario,
+además del carácter Unicode que forma parte del comando de prueba. Es una excepción deliberada
+a la regla general de Taste; los símbolos no sustituyen etiquetas o estados. El inspector también
+cuenta la fuente del sistema para emojis como una tercera familia junto al texto y el código; ese
+aviso se acepta únicamente para los símbolos. El texto mantiene su tipografía anterior. El aviso estático sobre
 `padStart(2, "0")` en el diario corresponde a bytes de un identificador SHA-256, no a numeración
 decorativa. El inspector es un complemento: también se revisan las capturas y se recorren las vistas.
 

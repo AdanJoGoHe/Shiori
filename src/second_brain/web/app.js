@@ -49,6 +49,22 @@ function element(tag, text, className) {
   return node;
 }
 
+// Identity describes destinations/content, independently of verification or highlight colors.
+const identities = {
+  inicio: ["🗂", "inicio"], biblioteca: ["📚", "biblioteca"], fragmentos: ["🏷", "fragmentos"], // taste-skill-ignore: owner-requested identity symbols.
+  favoritos: ["🔖", "favoritos"], diario: ["📓", "diario"], "agent-log": ["📋", "agent-log"], // taste-skill-ignore: owner-requested identity symbols.
+  documentation: ["📄", "biblioteca"], note: ["📘", "biblioteca"], journal: ["📓", "diario"], // taste-skill-ignore: owner-requested identity symbols.
+  comando: ["⌨", "inicio"], "direccion-ip": ["🌐", "biblioteca"], ruta: ["📂", "diario"], // taste-skill-ignore: owner-requested identity symbols.
+  "informacion-importante": ["📌", "fragmentos"] // taste-skill-ignore: owner-requested identity symbols.
+};
+function identify(node, key) {
+  const identity = identities[key];
+  if (!identity) return;
+  node.dataset.identity = identity[1];
+  const symbol = element("span", identity[0], "identity-symbol");
+  symbol.setAttribute("aria-hidden", "true");
+  node.prepend(symbol);
+}
 // Keep queries in this tab's history state, never in shareable URLs or localStorage.
 const screens = {
   inicio: ["Inicio", "Lo que quieres tener a mano."],
@@ -79,6 +95,8 @@ function resetReader() {
 function showScreen() {
   const screen = state.screen, library = ["biblioteca", "fragmentos"].includes(screen);
   document.body.dataset.screen = screen;
+  document.querySelector(".masthead").dataset.identity = screen;
+  $("screen-symbol").textContent = identities[screen][0];
   document.querySelector(".masthead h1").textContent = screens[screen][0];
   document.querySelector(".subtitle").textContent = screens[screen][1];
   document.title = "Shiori · " + screens[screen][0];
@@ -120,7 +138,9 @@ function pageResult(item) {
   const button = element("button", undefined, "result" + (state.selected === item.id ? " active" : ""));
   button.setAttribute("aria-pressed", String(state.selected === item.id));
   button.dataset.id = item.id;
-  button.append(element("span", names[item.kind] + " / " + item.source, "kind"), element("h3", item.title),
+  const kind = element("span", names[item.kind] + " / " + item.source, "kind identity-label");
+  identify(kind, item.kind);
+  button.append(kind, element("h3", item.title),
     element("p", item.preview), element("div", dateText(item.updated_at) + (item.metadata.tags?.length ? " · " + item.metadata.tags.join(" / ") : ""), "result-foot"));
   button.onclick = () => openItem(item.id);
   return button;
@@ -131,6 +151,7 @@ function shortcuts(container, categories, home = false) {
     const category = categories.find(row => row.id === key && !row.archived);
     if (!category) continue;
     const button = element("button", category.label, "shortcut");
+    identify(button, key);
     button.type = "button";
     button.setAttribute("aria-pressed", String(!home && state.categories.includes(key)));
     button.onclick = async () => {
@@ -578,7 +599,11 @@ $("reader-body").addEventListener("click", event => {
     warning("Ese enlace no está disponible dentro de las fuentes autorizadas.");
   }
 });
-for (const button of document.querySelectorAll(".destination")) button.onclick = () => navigate(button.dataset.screen);
+for (const button of document.querySelectorAll(".destination")) {
+  identify(button, button.dataset.screen);
+  button.onclick = () => navigate(button.dataset.screen);
+}
+for (const heading of document.querySelectorAll("[data-identity-key]")) identify(heading, heading.dataset.identityKey);
 for (const button of document.querySelectorAll(".collections .collection")) button.onclick = () => navigate("biblioteca", button.dataset.kind);
 for (const button of document.querySelectorAll("[data-go]")) button.onclick = () => navigate(button.dataset.go);
 window.addEventListener("popstate", async () => {

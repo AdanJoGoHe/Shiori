@@ -1157,3 +1157,44 @@ a {color:var(--green);text-underline-offset:4px}
 .collections .collection[aria-pressed=true] {font-weight:600;color:var(--ink)}
 
 .home-grid .result .kind,.home-grid .result .result-foot,.home-grid .fragment-result .result-foot,.home-grid .panel-heading .quiet,.home-grid .fragment-result .quiet,.theme-picker select,footer {font-size:13px}
+
+/* Destination identity uses muted ink/tint pairs; content highlight colors keep their meaning. */
+:root {
+  --identity-inicio: #3f5b4b; --identity-inicio-soft: #e8efea;
+  --identity-biblioteca: #425f7a; --identity-biblioteca-soft: #e8eef3;
+  --identity-fragmentos: #78602c; --identity-fragmentos-soft: #f3eedf;
+  --identity-favoritos: #73516a; --identity-favoritos-soft: #f0e8ed;
+  --identity-diario: #7a5745; --identity-diario-soft: #f1eae4;
+  --identity-log: #53616a; --identity-log-soft: #e9edef;
+}
+:root[data-theme="dark"] {
+  --identity-inicio: #afc8b7; --identity-inicio-soft: #28352d;
+  --identity-biblioteca: #acc5df; --identity-biblioteca-soft: #293542;
+  --identity-fragmentos: #ddc58e; --identity-fragmentos-soft: #393327;
+  --identity-favoritos: #d7b6cc; --identity-favoritos-soft: #3b2d37;
+  --identity-diario: #d8bba7; --identity-diario-soft: #3a302a;
+  --identity-log: #b9c7cf; --identity-log-soft: #2b343a;
+}
+:root[data-theme="latte"] {
+  --identity-inicio-soft: #e1e6d7; --identity-biblioteca-soft: #e1e5e6;
+  --identity-fragmentos-soft: #eadfbe; --identity-favoritos-soft: #e9dce0;
+  --identity-diario-soft: #e8d9ca; --identity-log-soft: #e0dfd9;
+}
+[data-identity="inicio"] {--identity:var(--identity-inicio);--identity-soft:var(--identity-inicio-soft)}
+[data-identity="biblioteca"] {--identity:var(--identity-biblioteca);--identity-soft:var(--identity-biblioteca-soft)}
+[data-identity="fragmentos"] {--identity:var(--identity-fragmentos);--identity-soft:var(--identity-fragmentos-soft)}
+[data-identity="favoritos"] {--identity:var(--identity-favoritos);--identity-soft:var(--identity-favoritos-soft)}
+[data-identity="diario"] {--identity:var(--identity-diario);--identity-soft:var(--identity-diario-soft)}
+[data-identity="agent-log"] {--identity:var(--identity-log);--identity-soft:var(--identity-log-soft)}
+.identity-symbol {display:inline-block;flex:none;width:1.4em;text-align:center;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:18px;font-weight:400;line-height:1.4;filter:saturate(.35)}
+.destination {display:flex;align-items:center;gap:10px}
+.destination.active {color:var(--identity);background:var(--identity-soft)}
+.title-line {display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.title-line .identity-symbol {font-size:25px}
+.masthead .title-line h1 {margin:0;color:var(--identity)}
+.panel-heading h2[data-identity],.upcoming h2[data-identity] {display:flex;align-items:center;gap:8px;color:var(--identity)}
+.identity-label {display:inline-flex;align-items:center;gap:6px;color:var(--identity)!important;letter-spacing:normal}
+.identity-label .identity-symbol {font-size:14px}
+.shortcut[data-identity] {display:inline-flex;align-items:center;gap:6px;color:var(--identity);border-color:var(--identity)}
+.shortcut[data-identity][aria-pressed=true] {color:var(--identity);background:var(--identity-soft);border-color:var(--identity)}
+.shortcut .identity-symbol {font-size:16px}

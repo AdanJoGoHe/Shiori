@@ -4,19 +4,43 @@
 <body>
 <a class="skip" href="#search">Ir a la búsqueda</a>
 <aside class="sidebar">
-  <div class="brand"><svg class="brand-mark" viewBox="0 0 32 36" fill="none" aria-hidden="true" focusable="false"><path d="M7 3h13l5 5v25l-9-6-9 6V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M20 3v6h5M12 14h8M12 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><span class="brand-name">Shiori</span><small>Tu biblioteca personal</small></div></div>
-  <p class="eyebrow">COLECCIONES</p>
-  <nav aria-label="Colecciones">
-    <button class="collection active" data-kind="" aria-pressed="true">Todo el contenido</button>
-    <button class="collection" data-kind="documentation" aria-pressed="false">Documentación</button>
-    <button class="collection" data-kind="note" aria-pressed="false">Conocimiento</button>
-    <button class="collection" data-kind="journal" aria-pressed="false">Diario</button>
+  <div class="brand"><svg class="brand-mark" viewBox="0 0 32 36" fill="none" aria-hidden="true" focusable="false"><path d="M7 3h13l5 5v25l-9-6-9 6V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M20 3v6h5M12 14h8M12 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><span class="brand-name">Shiori</span><small id="memory-scope">Memoria local</small></div></div>
+  <p class="nav-label">Tu memoria</p>
+  <nav aria-label="Principal">
+    <button class="destination" data-screen="inicio">Inicio</button>
+    <button class="destination" data-screen="biblioteca">Biblioteca</button>
+    <button class="destination" data-screen="fragmentos">Fragmentos</button>
+    <button class="destination" data-screen="favoritos">Favoritos</button>
+    <button class="destination collection" data-screen="diario" data-kind="journal">Diario</button>
+    <button class="destination" data-screen="agent-log">Agent log</button>
   </nav>
+  <details class="collections"><summary>Colecciones de la biblioteca</summary>
+    <button class="collection" data-kind="">Todo el contenido</button>
+    <button class="collection" data-kind="documentation">Documentación</button>
+    <button class="collection" data-kind="note">Conocimiento</button>
+  </details>
   <label class="theme-picker">Tema<select id="theme"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="latte">Café Latte</option></select></label>
   <div class="sidebar-foot"><span class="local-dot" aria-hidden="true"></span> Local · Archivos Markdown<p>Los archivos siguen siendo<br>la fuente de verdad.</p></div>
 </aside>
 <main>
-  <header class="masthead"><div><p class="eyebrow">Vuelve a lo que aprendiste.</p><h1>Biblioteca</h1><p class="subtitle">Documentación, conocimiento y avances, en un mismo lugar.</p></div><button id="refresh" class="quiet">Actualizar</button></header>
+  <section class="search-area" aria-label="Búsqueda en la memoria">
+    <label class="search-label" for="search">Buscar en tu biblioteca</label>
+    <div class="search-row"><input id="search" type="search" maxlength="300" placeholder="Un comando, una página, algo que aprendiste…" autocomplete="off"><kbd>Ctrl K</kbd><button id="clear" class="quiet">Limpiar filtros</button></div>
+    <div class="search-options"><label>Buscar en<select id="view"><option value="documents">Documentos</option><option value="fragments">Fragmentos marcados</option></select></label><span id="search-context">Documentación y conocimiento</span></div>
+    <p id="copy-message" role="status" aria-live="polite"></p>
+  </section>
+  <header class="masthead"><div><h1 tabindex="-1">Inicio</h1><p class="subtitle">Lo que quieres tener a mano.</p></div><button id="refresh" class="quiet">Actualizar</button></header>
+  <section id="home-panel" hidden aria-label="Tu mesa de trabajo">
+    <div class="home-grid">
+      <div class="home-column"><section class="home-fragments"><div class="panel-heading"><h2>Textos importantes</h2><button class="quiet" data-go="fragmentos">Ver fragmentos</button></div><div id="home-shortcuts" class="fragment-shortcuts" aria-label="Accesos a fragmentos"></div><div id="home-fragments" aria-live="polite"></div></section>
+      <section><div class="panel-heading"><h2>Páginas recientes</h2><button class="quiet" data-go="biblioteca">Biblioteca</button></div><div id="home-pages" aria-live="polite"></div></section>
+      </div><div class="home-column">
+      <section><div class="panel-heading"><h2>Hoy en tu diario</h2><button class="quiet" data-go="diario">Abrir diario</button></div><div id="home-journal" aria-live="polite"></div></section>
+      <section class="upcoming"><h2>Favoritos y Agent log</h2><p>Guardar páginas a mano y consultar las acciones del agente son las siguientes mejoras. Todavía no están disponibles.</p><button class="quiet" data-go="favoritos">Ver qué falta</button></section>
+      </div>
+    </div>
+  </section>
+  <section id="upcoming-panel" hidden aria-label="Funcionalidad pendiente"><h2 id="upcoming-title"></h2><p id="upcoming-description"></p><button class="quiet" data-go="biblioteca">Ir a la biblioteca</button></section>
   <section id="journal-panel" hidden aria-label="Diario por proyecto">
     <div class="journal-filters">
       <label>Proyecto<input id="journal-project" list="journal-projects" maxlength="100" pattern="[a-z0-9][a-z0-9-]{0,99}" placeholder="Todos los proyectos" autocomplete="off"><datalist id="journal-projects"></datalist></label>
@@ -38,15 +62,14 @@
   </section>
   <section class="toolbar" aria-label="Búsqueda y filtros">
     <div class="fragment-controls">
-      <label>Buscar en<select id="view"><option value="documents">Documentos</option><option value="fragments">Fragmentos marcados</option></select></label>
+
       <label id="fragment-color-wrap" hidden>Color de la marca<select id="fragment-color"><option value="">Todos los colores</option><option value="yellow">Amarillo</option><option value="green">Verde</option><option value="blue">Azul</option><option value="pink">Rosa</option><option value="orange">Naranja</option><option value="violet">Violeta</option></select></label>
     </div>
     <div id="fragment-filters" hidden><p>Comandos, IPs y rutas marcadas, con contexto y copia directa.</p><div id="fragment-categories" aria-label="Filtrar por categorías de fragmentos"></div><details><summary>Cómo se combinan los filtros</summary><p>Categorías y etiquetas seleccionadas se combinan con Y; los términos buscan en el fragmento y los nombres de sus categorías. Las fechas y el orden «Más reciente» corresponden al documento.</p></details></div>
-    <p id="copy-message" role="status" aria-live="polite"></p>
-    <label class="search-label" for="search">Buscar en el contenido</label>
-    <div class="search-row"><input id="search" type="search" placeholder="Un tema, una decisión, un comando…" autocomplete="off"><button id="clear" class="quiet">Limpiar filtros</button></div>
+    <div id="fragment-shortcuts" class="fragment-shortcuts" hidden aria-label="Accesos a fragmentos"></div>
+    <div id="active-filters" aria-label="Filtros activos"></div>
     <div class="basic-filters"><label>Origen<select id="source"><option value="">Todos los orígenes</option></select></label><label>Proyecto<select id="project"><option value="">Todos los proyectos</option></select></label><label>Orden<select id="sort"><option value="relevance">Relevancia</option><option value="updated">Más reciente</option><option value="title">Título</option></select></label><details><summary>Más filtros</summary><div class="extra-filters"><label>Tipo<select id="type"><option value="">Todos los tipos</option></select></label><label>Estado<select id="status"><option value="">Todos los estados</option></select></label><label>Agente<select id="source_agent"><option value="">Todos los agentes</option></select></label><label>Desde<input type="date" id="from"></label><label>Hasta<input type="date" id="to"></label></div></details></div>
-    <div class="tag-row"><span class="eyebrow">ETIQUETAS DEL DOCUMENTO</span><div id="tags" aria-label="Filtrar por etiquetas"></div></div>
+    <div class="tag-row"><span class="metadata-label">ETIQUETAS DEL DOCUMENTO</span><div id="tags" aria-label="Filtrar por etiquetas"></div></div>
   </section>
   <details id="category-manager" class="category-manager">
     <summary>Etiquetas de fragmentos</summary>
@@ -65,7 +88,7 @@
   <div id="warning" role="status" aria-live="polite" aria-atomic="true" hidden></div>
   <section class="workspace">
     <div class="results-panel"><div class="results-heading"><h2 id="collection-title">Todo el contenido</h2><span id="count" aria-live="polite">Cargando…</span></div><div id="results" aria-busy="true"></div><div class="paging"><button id="prev" class="quiet" disabled>Anterior</button><span id="page"></span><button id="next" class="quiet" disabled>Siguiente</button></div></div>
-    <section class="reader" aria-label="Lector de documentos"><div id="reader-empty"><span class="empty-symbol" aria-hidden="true">Aa</span><h2>Un espacio para leer.</h2><p>Abre un documento de la lista para consultar<br>su contenido, contexto y referencias.</p></div><div id="reader-content" hidden><button id="back" class="quiet">← Volver a resultados</button><p class="eyebrow" id="reader-source"></p><h2 id="reader-title" tabindex="-1"></h2><div id="reader-meta"></div><details id="toc-wrap"><summary>En este documento</summary><nav id="toc" aria-label="Índice del documento"></nav></details><section id="marks-panel" hidden>
+    <section class="reader" aria-label="Lector de documentos"><div id="reader-empty"><span class="empty-symbol" aria-hidden="true">Aa</span><h2>Un espacio para leer.</h2><p>Abre un documento de la lista para consultar<br>su contenido, contexto y referencias.</p></div><div id="reader-content" hidden><button id="back" class="quiet">← Volver a resultados</button><p class="metadata-label" id="reader-source"></p><h2 id="reader-title" tabindex="-1"></h2><div id="reader-meta"></div><details id="toc-wrap"><summary>En este documento</summary><nav id="toc" aria-label="Índice del documento"></nav></details><section id="marks-panel" hidden>
       <div class="mark-toolbar"><button id="mark-selection" type="button">Marcar selección</button><button id="mark-reload" type="button" class="quiet">Recargar marcas</button><span id="mark-count"></span><small id="mark-selection-hint">Selecciona texto dentro del documento.</small></div>
       <article id="reader-body"></article>
       <p id="mark-message" role="status" aria-live="polite"></p><button id="mark-cancel-relink" class="quiet" type="button" hidden>Cancelar reparación</button>
@@ -83,6 +106,6 @@
       <details open class="saved-marks"><summary>Marcas guardadas</summary><p>En superposiciones se ve el color de la marca más reciente; todas siguen disponibles aquí. Deshacer recupera la última eliminación y deja de estar disponible al cambiar de documento, recargar o reiniciar la sesión.</p><button id="mark-undo" class="quiet" type="button" disabled>Deshacer eliminación</button><div id="mark-list"></div></details>
     </section><section id="related-wrap" hidden><h3>Notas relacionadas</h3><div id="related"></div></section></div></section>
   </section>
-  <footer>Shiori <span>Markdown · Local · Personal</span></footer>
+  <footer>Shiori <span id="deployment-label">Markdown · Local</span></footer>
 </main>
 </body></html>

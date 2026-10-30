@@ -27,6 +27,7 @@ const labels = {
   profile: "Perfil"
 };
 const state = {
+  screen: "inicio",
   kind: "",
   categories: [],
   tags: [],
@@ -35,7 +36,6 @@ const state = {
   selected: null
 };
 let readerMarks;
-let resultsReturn = null;
 let requestNumber = 0,
   readerNumber = 0,
   timer;
@@ -49,6 +49,167 @@ function element(tag, text, className) {
   return node;
 }
 
+// Keep queries in this tab's history state, never in shareable URLs or localStorage.
+const screens = {
+  inicio: ["Inicio", "Lo que quieres tener a mano."],
+  biblioteca: ["Biblioteca", "Documentación y conocimiento, con su contexto."],
+  fragmentos: ["Fragmentos", "Comandos, IPs, rutas y textos importantes, listos para recuperar."],
+  diario: ["Diario", "Lo que avanzaste y el siguiente paso para retomarlo."],
+  favoritos: ["Favoritos", "Tus páginas a mano."],
+  "agent-log": ["Agent log", "Las acciones del agente, con su resultado."]
+};
+let deployment, restoring = false, routeSequence = 0, fragmentCategories = [];
+function snapshot() {
+  return {viewer: true, screen: state.screen, kind: state.kind, tags: [...state.tags], categories: [...state.categories],
+    offset: state.offset, selected: state.selected, markId: state.markId || null,
+    query: $("search").value, view: $("view").value, color: $("fragment-color").value,
+    filters: Object.fromEntries(filterKeys.map(key => [key, $(key).value])),
+    journal: Object.fromEntries(["journal-project", "journal-from", "journal-to", "journal-task-filter"].map(key => [key, $(key).value])),
+    focusId: document.activeElement.closest?.(".result")?.dataset.id, focusMark: document.activeElement.closest?.(".fragment-result")?.dataset.markId,
+    y: window.scrollY, resultsScroll: $("results").scrollTop};
+}
+function remember() { if (!restoring) history.replaceState(snapshot(), ""); }
+function resetReader() {
+  readerNumber++;
+  readerMarks?.reset();
+  state.selected = null; state.markId = null;
+  document.body.classList.remove("reading");
+  $("reader-empty").hidden = false; $("reader-content").hidden = true;
+}
+function showScreen() {
+  const screen = state.screen, library = ["biblioteca", "fragmentos"].includes(screen);
+  document.body.dataset.screen = screen;
+  document.querySelector(".masthead h1").textContent = screens[screen][0];
+  document.querySelector(".subtitle").textContent = screens[screen][1];
+  document.title = "Shiori · " + screens[screen][0];
+  $("home-panel").hidden = screen !== "inicio";
+  $("upcoming-panel").hidden = !["favoritos", "agent-log"].includes(screen);
+  document.querySelector(".toolbar").hidden = !library;
+  $("category-manager").hidden = !library;
+  document.querySelector(".workspace").hidden = !library && !(screen === "inicio" && state.selected);
+  const fragments = $("view").value === "fragments";
+  $("fragment-filters").hidden = !fragments;
+  $("fragment-color-wrap").hidden = !fragments;
+  $("fragment-shortcuts").hidden = !fragments;
+  $("search-context").textContent = fragments ? "Texto marcado y categorías" : "Documentación y conocimiento";
+  for (const button of document.querySelectorAll(".destination")) {
+    button.classList.toggle("active", button.dataset.screen === screen);
+    if (button.dataset.screen === screen) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  }
+  for (const button of document.querySelectorAll(".collection")) button.setAttribute("aria-pressed", String(button.dataset.kind === state.kind && library));
+}
+async function navigate(screen, kind = "", record = true) {
+  const route = ++routeSequence;
+  restoring = false;
+  clearTimeout(timer);
+  if (record) remember();
+  resetReader();
+  state.screen = screen; state.kind = screen === "diario" ? "journal" : kind;
+  state.offset = 0; state.tags = []; state.categories = [];
+  $("fragment-color").value = "";
+  for (const key of filterKeys) $(key).value = key === "sort" ? "relevance" : "";
+  $("view").value = screen === "fragmentos" ? "fragments" : "documents";
+  if (record) history.pushState(snapshot(), "", "#" + screen);
+  await load();
+  if (route !== routeSequence) return;
+  window.scrollTo(0, 0);
+  document.querySelector(".masthead h1").focus({preventScroll: true});
+}
+function pageResult(item) {
+  const button = element("button", undefined, "result" + (state.selected === item.id ? " active" : ""));
+  button.setAttribute("aria-pressed", String(state.selected === item.id));
+  button.dataset.id = item.id;
+  button.append(element("span", names[item.kind] + " / " + item.source, "kind"), element("h3", item.title),
+    element("p", item.preview), element("div", dateText(item.updated_at) + (item.metadata.tags?.length ? " · " + item.metadata.tags.join(" / ") : ""), "result-foot"));
+  button.onclick = () => openItem(item.id);
+  return button;
+}
+function shortcuts(container, categories, home = false) {
+  container.replaceChildren();
+  for (const key of ["comando", "direccion-ip", "ruta", "informacion-importante"]) {
+    const category = categories.find(row => row.id === key && !row.archived);
+    if (!category) continue;
+    const button = element("button", category.label, "shortcut");
+    button.type = "button";
+    button.setAttribute("aria-pressed", String(!home && state.categories.includes(key)));
+    button.onclick = async () => {
+      if (home) await navigate("fragmentos");
+      state.categories = [key]; state.offset = 0;
+      load();
+    };
+    container.append(button);
+  }
+}
+function activeFilters() {
+  const target = $("active-filters"); target.replaceChildren();
+  const chip = (label, remove) => {
+    const button = element("button", label + " ×", "tag");
+    button.type = "button"; button.setAttribute("aria-label", "Quitar filtro: " + label);
+    button.onclick = () => { remove(); state.offset = 0; load(); };
+    target.append(button);
+  };
+  if (state.kind) chip(names[state.kind], () => { state.kind = ""; });
+  if ($("search").value) chip("Texto: " + $("search").value, () => { $("search").value = ""; });
+  for (const key of filterKeys) {
+    const input = $(key);
+    if (input.value && !(key === "sort" && input.value === "relevance"))
+      chip(input.closest("label").firstChild.textContent + ": " + (input.selectedOptions?.[0]?.textContent || input.value), () => { input.value = key === "sort" ? "relevance" : ""; });
+  }
+  for (const tag of state.tags) chip("Etiqueta: " + (tag === "__none__" ? "Sin etiquetas" : tag), () => { state.tags = state.tags.filter(value => value !== tag); });
+  if ($("view").value === "fragments") {
+    for (const category of state.categories) chip("Categoría: " + (fragmentCategories.find(row => row.id === category)?.label || (category === "__none__" ? "Sin categoría" : category)), () => { state.categories = state.categories.filter(value => value !== category); });
+    if ($("fragment-color").value) chip(colorNames[$("fragment-color").value], () => { $("fragment-color").value = ""; });
+  }
+}
+async function viewerInfo(refresh = false) {
+  if (!deployment || refresh) deployment = await api("api/viewer-info");
+  const scope = deployment.scope === "work" ? "de trabajo" : "personal";
+  $("memory-scope").textContent = "Memoria " + scope;
+  $("deployment-label").textContent = "Markdown · Local · " + (deployment.scope === "work" ? "Trabajo" : "Personal");
+  return deployment;
+}
+async function loadHome(number) {
+  const sections = ["home-fragments", "home-pages", "home-journal"];
+  for (const name of sections) { $(name).replaceChildren(element("p", "Leyendo…", "home-message")); $(name).setAttribute("aria-busy", "true"); }
+  const requests = [
+    api("api/items?view=fragments&sort=updated"),
+    api("api/items?sort=updated"),
+    viewerInfo(true).then(info => api("api/journal?" + new URLSearchParams({start_date: info.today, end_date: info.today})))
+  ];
+  await Promise.all(requests.map(async (request, index) => {
+    const target = $(sections[index]);
+    try {
+      const data = await request;
+      if (number !== requestNumber) return;
+      target.replaceChildren();
+      if (index === 0) {
+        shortcuts($("home-shortcuts"), data.facets.category || [], true);
+        for (const item of data.items.slice(0, 2)) target.append(fragmentResult(item, data.facets.category, true));
+        if (!data.items.length) target.append(element("p", ["partial", "limited", "unavailable"].includes(data.diagnostics?.status) ? "No se pudo confirmar qué textos están disponibles. Abre Fragmentos para revisar el diagnóstico." : "Todavía no hay textos marcados. Abre una página y guarda sus partes útiles.", "home-message"));
+      } else if (index === 1) {
+        for (const item of data.items.slice(0, 2)) target.append(pageResult(item));
+        if (!data.items.length) target.append(element("p", ["partial", "limited", "unavailable"].includes(data.diagnostics?.status) ? "No se pudo confirmar qué páginas están disponibles. Abre Biblioteca para revisar el diagnóstico." : "Todavía no hay páginas disponibles. Añade notas o una fuente de documentación.", "home-message"));
+      } else {
+        target.append(element("p", data.start_date, "home-date"));
+        for (const item of data.items.filter(row => !row.superseded_by).slice(0, 2)) {
+          const row = element("div", undefined, "home-advance");
+          row.append(element("h3", item.title));
+          if (item.summary !== item.title) row.append(element("p", item.summary));
+          if (item.project) row.append(element("span", item.project, "result-foot"));
+          target.append(row);
+        }
+        if (!target.querySelector(".home-advance")) target.append(element("p", "Sin actividad registrada hoy.", "home-message"));
+      }
+      if (data.truncated || data.next_offset !== null || data.error_count || ["partial", "limited", "unavailable"].includes(data.diagnostics?.status))
+        target.append(element("p", "Vista resumida o incompleta. Abre la sección para consultar más y revisar sus avisos.", "home-message"));
+    } catch {
+      if (number !== requestNumber) return;
+      target.replaceChildren(element("p", "No se pudo leer esta sección.", "home-message"));
+      const retry = element("button", "Reintentar", "quiet"); retry.onclick = () => load(); target.append(retry);
+    } finally { if (number === requestNumber) target.setAttribute("aria-busy", "false"); }
+  }));
+}
 function warning(text) {
   $("warning").textContent = text;
   $("warning").hidden = !text;
@@ -232,18 +393,21 @@ function renderFragmentCategories(values) {
     if (focused === category.id) button.focus({preventScroll: true});
   }
 }
-function fragmentResult(item, categories) {
+function fragmentResult(item, categories, compact = false) {
   const mark = item.annotation, row = element("article", undefined, "fragment-result");
+  row.dataset.markId = mark.id;
   if (mark.title) row.append(element("h3", mark.title));
   if (mark.description) row.append(element("p", mark.description, "mark-description"));
   row.append(element("p", item.context_before, "fragment-context"));
-  const quote = element("pre", undefined, "fragment-quote");
+  const quote = element(mark.tags.includes("comando") || mark.tags.includes("ruta") || mark.tags.includes("direccion-ip") ? "pre" : "blockquote", undefined, "fragment-quote");
   const text = element("mark", mark.quote, "reader-mark");
   text.dataset.color = mark.color;
   quote.append(text);
-  row.append(quote, element("p", item.context_after, "fragment-context"));
-  row.append(element("p", mark.tags.map(id => { const c = categories.find(c => c.id === id); return (c?.label || id) + (c?.archived ? " (archivada)" : ""); }).join(" / ") || "Sin categoría", "result-foot"));
-  row.append(element("p", `${item.title} · ${names[item.kind]} · ${colorNames[mark.color]} · Marca: ${dateText(mark.updated_at)}`, "result-foot"));
+  row.append(quote);
+  if (!compact) row.append(element("p", item.context_after, "fragment-context"));
+  const categoryText = mark.tags.map(id => { const c = categories.find(c => c.id === id); return (c?.label || id) + (c?.archived ? " (archivada)" : ""); }).join(" / ") || "Sin categoría";
+  row.append(element("p", categoryText + (compact ? " · " + item.title : ""), "result-foot"));
+  if (!compact) row.append(element("p", `${item.title} · ${names[item.kind]} · ${colorNames[mark.color]} · Marca: ${dateText(mark.updated_at)}`, "result-foot"));
   if (mark.anchor.status !== "resolved") {
     const reasons = {missing: "texto desaparecido", ambiguous: "texto ambiguo", "context-changed": "contexto cambiado", unavailable: "documento no disponible"};
     row.append(element("p", "Cita y contexto guardados. Anclaje pendiente de reparación: " + (reasons[mark.anchor.reason] || "destino sin confirmar"), "fragment-context"));
@@ -254,18 +418,27 @@ function fragmentResult(item, categories) {
     catch { $("copy-message").textContent = "No se pudo copiar. Selecciona el texto del fragmento y cópialo con el teclado."; }
   };
   const open = element("button", mark.anchor.status === "resolved" ? "Abrir ubicación" : "Revisar marca", "quiet");
-  open.onclick = () => { resultsReturn = {node: open, x: window.scrollX, y: window.scrollY, scroll: $("results").scrollTop}; openItem(item.id, mark.id); };
+  open.onclick = () => openItem(item.id, mark.id);
   row.append(copy, open);
   return row;
 }
 async function load() {
   const number = ++requestNumber;
+  JournalUI.hide();
+  showScreen();
+  remember();
+  if (state.screen === "inicio") { warning(""); return loadHome(number); }
+  if (["favoritos", "agent-log"].includes(state.screen)) {
+    warning("");
+    $("upcoming-title").textContent = state.screen === "favoritos" ? "Favoritos persistentes · pendiente" : "Registro de acciones · pendiente";
+    $("upcoming-description").textContent = state.screen === "favoritos" ? "Guardar y recuperar páginas desde el visor y la IA llegará con el sistema de favoritos. Aún no se guardan favoritos aquí." : "Aquí podrás consultar comandos, visitas y enlaces registrados por el agente. El registro y sus consultas todavía no están implementados.";
+    return;
+  }
   if (state.kind === "journal") {
     warning("");
     JournalUI.show();
     return JournalUI.load();
   }
-  JournalUI.hide();
   $("results").setAttribute("aria-busy", "true");
   $("count").textContent = "Buscando…";
   const params = new URLSearchParams();
@@ -287,7 +460,10 @@ async function load() {
     if (!data.diagnostics) throw new Error("Reinicia el visor para cargar la versión actual del servidor y vuelve a actualizar.");
     for (const key of ["source", "project", "type", "status", "source_agent"]) options(key, data.facets[key]);
     renderTags(data.facets.tag);
-    renderFragmentCategories(data.facets.category || []);
+    fragmentCategories = data.facets.category || [];
+    renderFragmentCategories(fragmentCategories);
+    shortcuts($("fragment-shortcuts"), fragmentCategories);
+    activeFilters();
     state.next = data.next_offset;
     const incomplete = ["partial", "limited", "unavailable"].includes(data.diagnostics.status);
     $("count").textContent = data.result_state === "unavailable" ? "No disponible" :
@@ -310,14 +486,10 @@ async function load() {
     }
     for (const item of data.items) {
       if (fragments) { results.append(fragmentResult(item, data.facets.category)); continue; }
-      const button = element("button", undefined, "result" + (state.selected === item.id ? " active" : ""));
-      button.setAttribute("aria-pressed", String(state.selected === item.id));
-      button.dataset.id = item.id;
-      button.append(element("span", names[item.kind] + " / " + item.source, "kind"), element("h3", item.title), element("p", item.preview), element("div", dateText(item.updated_at) + (item.metadata.tags?.length ? " · " + item.metadata.tags.join(" / ") : ""), "result-foot"));
-      button.onclick = () => openItem(item.id);
-      results.append(button);
+      results.append(pageResult(item));
     }
     catalogWarning(data.diagnostics);
+    remember();
   } catch (error) {
     if (number !== requestNumber) return;
     warning(error.message);
@@ -327,7 +499,11 @@ async function load() {
     if (number === requestNumber) $("results").setAttribute("aria-busy", "false");
   }
 }
-async function openItem(id, markId = null) {
+async function openItem(id, markId = null, record = true) {
+  if (record) { routeSequence++; restoring = false; remember(); }
+  state.selected = id; state.markId = markId;
+  if (record) history.pushState(snapshot(), "");
+  document.querySelector(".workspace").hidden = false;
   const number = ++readerNumber;
   readerMarks.reset();
   state.selected = id;
@@ -402,39 +578,60 @@ $("reader-body").addEventListener("click", event => {
     warning("Ese enlace no está disponible dentro de las fuentes autorizadas.");
   }
 });
-for (const button of document.querySelectorAll(".collection")) button.onclick = () => {
-  state.kind = button.dataset.kind;
-  history.replaceState(null, "", state.kind === "journal" ? "#diario" : location.pathname + location.search);
-  state.offset = 0;
-  state.selected = null;
-  readerNumber++;
-  readerMarks.reset();
-  $("reader-empty").hidden = false;
-  $("reader-content").hidden = true;
-  document.body.classList.remove("reading");
-  for (const b of document.querySelectorAll(".collection")) {
-    b.classList.toggle("active", b === button);
-    b.setAttribute("aria-pressed", String(b === button));
+for (const button of document.querySelectorAll(".destination")) button.onclick = () => navigate(button.dataset.screen);
+for (const button of document.querySelectorAll(".collections .collection")) button.onclick = () => navigate("biblioteca", button.dataset.kind);
+for (const button of document.querySelectorAll("[data-go]")) button.onclick = () => navigate(button.dataset.go);
+window.addEventListener("popstate", async () => {
+  const saved = history.state;
+  if (!saved?.viewer) {
+    const screen = location.hash.slice(1);
+    if (screens[screen]) await navigate(screen, "", false);
+    return;
   }
-  for (const key of ["source", "project", "type", "status", "source_agent"]) $(key).value = "";
-  state.tags = [];
-  load();
-};
+  const route = ++routeSequence;
+  restoring = true;
+  try {
+    resetReader();
+    Object.assign(state, {screen: saved.screen, kind: saved.kind, categories: saved.categories, tags: saved.tags, offset: saved.offset});
+    $("search").value = saved.query; $("view").value = saved.view; $("fragment-color").value = saved.color;
+    for (const key of filterKeys) {
+      if (saved.filters[key] && $(key).tagName === "SELECT" && !Array.from($(key).options).some(option => option.value === saved.filters[key])) $(key).add(new Option(saved.filters[key], saved.filters[key]));
+      $(key).value = saved.filters[key];
+    }
+    for (const [key, value] of Object.entries(saved.journal || {})) $(key).value = value;
+    const pending = load(), request = requestNumber;
+    await pending;
+    if (route !== routeSequence || request !== requestNumber) return;
+    if (saved.selected) await openItem(saved.selected, saved.markId, false);
+    if (route !== routeSequence) return;
+    $("results").scrollTop = saved.resultsScroll;
+    window.scrollTo(0, saved.y);
+    if (!saved.selected) {
+      const focus = Array.from(document.querySelectorAll(".result")).find(node => node.dataset.id === saved.focusId) ||
+        Array.from(document.querySelectorAll(".fragment-result")).find(node => node.dataset.markId === saved.focusMark)?.querySelector("button");
+      (focus || document.querySelector(".masthead h1")).focus({preventScroll: true});
+    }
+  } finally { if (route === routeSequence) restoring = false; }
+});
+document.addEventListener("keydown", event => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("search").focus(); }
+});
 $("search").oninput = () => {
   clearTimeout(timer);
   state.offset = 0;
-  timer = setTimeout(load, 250);
+  timer = setTimeout(() => {
+    if (!["biblioteca", "fragmentos"].includes(state.screen)) navigate($("view").value === "fragments" ? "fragmentos" : "biblioteca");
+    else load();
+  }, 250);
 };
 for (const key of filterKeys) $(key).onchange = () => {
   state.offset = 0;
   load();
 };
 $("view").onchange = () => {
-  const fragments = $("view").value === "fragments";
-  $("fragment-filters").hidden = !fragments;
-  $("fragment-color-wrap").hidden = !fragments;
-  state.offset = 0;
-  load();
+  const target = $("view").value === "fragments" ? "fragmentos" : "biblioteca";
+  $("view").value = state.screen === "fragmentos" ? "fragments" : "documents";
+  navigate(target, state.kind === "journal" ? "" : state.kind);
 };
 $("fragment-color").onchange = () => { state.offset = 0; load(); };
 $("clear").onclick = () => {
@@ -448,9 +645,11 @@ $("clear").onclick = () => {
   load();
 };
 $("refresh").onclick = () => {
+  routeSequence++; restoring = false;
   state.offset = 0;
   load();
-  if (state.selected && (document.body.classList.contains("reading") || window.matchMedia("(min-width: 1001px)").matches)) openItem(state.selected);
+  deployment = null; viewerInfo().catch(() => {});
+  if (state.selected && (document.body.classList.contains("reading") || window.matchMedia("(min-width: 1001px)").matches)) openItem(state.selected, state.markId, false);
 };
 $("prev").onclick = () => {
   state.offset = Math.max(0, state.offset - 20);
@@ -463,13 +662,12 @@ $("next").onclick = () => {
   }
 };
 $("back").onclick = () => {
-  document.body.classList.remove("reading");
-  if (resultsReturn?.node.isConnected) {
-    resultsReturn.node.focus({preventScroll: true});
-    $("results").scrollTop = resultsReturn.scroll;
-    window.scrollTo(resultsReturn.x, resultsReturn.y);
-  } else $("search").focus();
+  history.back();
 };
 readerMarks = new ReaderMarks();
-if (location.hash === "#diario") document.querySelector('.collection[data-kind="journal"]').click();
-else load();
+const initialScreen = location.hash.slice(1);
+state.screen = screens[initialScreen] ? initialScreen : "inicio";
+state.kind = state.screen === "diario" ? "journal" : "";
+$("view").value = state.screen === "fragmentos" ? "fragments" : "documents";
+viewerInfo().catch(() => { $("memory-scope").textContent = "Ámbito no disponible"; });
+load();

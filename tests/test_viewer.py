@@ -314,3 +314,31 @@ def test_http_viewer_auth_origin_static_and_read_only_routes(viewer):
         finally:
             server.shutdown()
             thread.join(timeout=5)
+
+
+@pytest.mark.parametrize("scope", ["personal", "work"])
+def test_viewer_info_uses_configured_scope_and_server_day(viewer, scope):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    brain = viewer.catalog.brain
+    brain.scope = scope
+    brain.now = lambda: datetime(2026, 10, 31, 0, 5, tzinfo=ZoneInfo("Europe/Madrid"))
+    with ViewerServer(brain) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with urlopen(server.url + "api/viewer-info", timeout=5) as response:
+                assert json.loads(response.read()) == {"scope": scope, "today": "2026-10-31"}
+                assert response.headers["Cache-Control"] == "no-store"
+            for url, headers, expected in [
+                (server.origin + "/api/viewer-info", {}, 404),
+                (server.url + "api/viewer-info?scope=personal", {}, 400),
+                (server.url + "api/viewer-info", {"Origin": "https://attacker.test"}, 403),
+            ]:
+                with pytest.raises(HTTPError) as error:
+                    urlopen(Request(url, headers=headers), timeout=5)
+                assert error.value.code == expected
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)

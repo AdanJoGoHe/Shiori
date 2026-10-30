@@ -519,6 +519,11 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     files("second_brain").joinpath("web", name).read_bytes(),
                     mime + "; charset=utf-8",
                 )
+            elif route == "api/viewer-info":
+                if parsed.query:
+                    raise ValueError("Viewer info takes no parameters")
+                brain = self.server.viewer.catalog.brain
+                self.reply(200, {"scope": brain.scope, "today": brain.now().date().isoformat()})
             elif route in {"api/journal", "api/journal-state", "api/project-resume"}:
                 from second_brain.workflow import timeline, overview, resume_project
 

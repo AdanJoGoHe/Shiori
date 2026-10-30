@@ -14,7 +14,7 @@ async function main() {
     page.setDefaultTimeout(5000);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto(url);
+    await page.goto(url + '#biblioteca');
     await page.locator('#results[aria-busy="false"]').waitFor({state: 'attached'});
     const original = await (await page.request.get(url + 'api/items')).json();
     assert(original.items.length, 'Demo needs at least one readable document');

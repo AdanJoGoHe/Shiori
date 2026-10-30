@@ -203,7 +203,7 @@ def create_server(config, *, auth=None, middleware=None):
     def list_content(
         kind: str | None = None, source: str | None = None, offset: int = 0, limit: int = 25
     ) -> dict:
-        """List read-only metadata for documentation, note or journal content.
+        """List read-only metadata for documentation, note, journal or task content.
 
         Source is a configured documentation source ID or the configured scope, never a path.
         Returns at most 100 items, next_offset, per-source errors and scan truncation.

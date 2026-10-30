@@ -10,6 +10,7 @@
     <button class="destination" data-screen="inicio">Inicio</button>
     <button class="destination" data-screen="biblioteca">Biblioteca</button>
     <button class="destination" data-screen="fragmentos">Fragmentos</button>
+    <button class="destination" data-screen="tareas">Tareas</button>
     <button class="destination" data-screen="favoritos">Favoritos</button>
     <button class="destination collection" data-screen="diario" data-kind="journal">Diario</button>
     <button class="destination" data-screen="agent-log">Agent log</button>
@@ -41,6 +42,16 @@
     </div>
   </section>
   <section id="upcoming-panel" hidden aria-label="Funcionalidad pendiente"><h2 id="upcoming-title"></h2><p id="upcoming-description"></p><button class="quiet" data-go="biblioteca">Ir a la biblioteca</button></section>
+  <section id="tasks-panel" hidden aria-label="Fichas de tareas">
+    <div class="panel-heading"><p>Un lugar para reunir el contexto de cada incidencia.</p><button id="task-new" class="quiet" type="button">Nueva tarea</button></div>
+    <form id="task-editor" hidden>
+      <h2 id="task-editor-title">Nueva tarea</h2>
+      <div class="task-fields"><label>Código<input id="task-key" placeholder="DEMO-1234" maxlength="40" required autocomplete="off"></label><label>Título<input id="task-title" maxlength="160" required></label><label>Estado<select id="task-status"><option value="open">Abierta</option><option value="in-progress">En curso</option><option value="blocked">Bloqueada</option><option value="done">Terminada</option></select></label><label>Proyecto<input id="task-project" maxlength="100" pattern="[a-z0-9][a-z0-9-]{0,99}" placeholder="Opcional"></label><label>Etiquetas, separadas por comas<input id="task-tags" maxlength="2000"></label></div>
+      <label>Notas de la tarea (Markdown)<textarea id="task-body" rows="9" maxlength="12000" placeholder="Contexto, pasos, comandos, resultados…"></textarea></label>
+      <div><button type="submit">Guardar tarea</button><button id="task-cancel" type="button" class="quiet">Cerrar edición</button></div>
+    </form>
+    <p id="task-message" role="status" aria-live="polite"></p>
+  </section>
   <section id="journal-panel" hidden aria-label="Diario por proyecto">
     <div class="journal-filters">
       <label>Proyecto<input id="journal-project" list="journal-projects" maxlength="100" pattern="[a-z0-9][a-z0-9-]{0,99}" placeholder="Todos los proyectos" autocomplete="off"><datalist id="journal-projects"></datalist></label>
@@ -88,7 +99,9 @@
   <div id="warning" role="status" aria-live="polite" aria-atomic="true" hidden></div>
   <section class="workspace">
     <div class="results-panel"><div class="results-heading"><h2 id="collection-title">Todo el contenido</h2><span id="count" aria-live="polite">Cargando…</span></div><div id="results" aria-busy="true"></div><div class="paging"><button id="prev" class="quiet" disabled>Anterior</button><span id="page"></span><button id="next" class="quiet" disabled>Siguiente</button></div></div>
-    <section class="reader" aria-label="Lector de documentos"><div id="reader-empty"><span class="empty-symbol" aria-hidden="true">Aa</span><h2>Un espacio para leer.</h2><p>Abre un documento de la lista para consultar<br>su contenido, contexto y referencias.</p></div><div id="reader-content" hidden><button id="back" class="quiet">← Volver a resultados</button><p class="metadata-label" id="reader-source"></p><h2 id="reader-title" tabindex="-1"></h2><div id="reader-meta"></div><details id="toc-wrap"><summary>En este documento</summary><nav id="toc" aria-label="Índice del documento"></nav></details><section id="marks-panel" hidden>
+    <section class="reader" aria-label="Lector de documentos"><div id="reader-empty"><span class="empty-symbol" aria-hidden="true">Aa</span><h2>Un espacio para leer.</h2><p>Abre un documento de la lista para consultar<br>su contenido, contexto y referencias.</p></div><div id="reader-content" hidden><button id="back" class="quiet">← Volver a resultados</button><p class="metadata-label" id="reader-source"></p><h2 id="reader-title" tabindex="-1"></h2><div id="reader-meta"></div>
+    <section id="task-context" hidden aria-label="Contexto de la tarea"><button id="task-edit" class="quiet" type="button">Editar tarea</button><details id="task-resources"><summary id="task-resources-summary">Vínculos de esta tarea</summary><div id="task-links"></div><form id="task-web-form"><label>Enlace web<input id="task-web-url" type="url" maxlength="2000" required placeholder="https://example.test/issue/DEMO-1234"></label><label>Nombre del enlace<input id="task-web-label" maxlength="160" required></label><button type="submit" class="quiet">Añadir enlace</button></form></details></section>
+    <details id="task-link-panel"><summary>Vincular a una tarea</summary><form id="task-link-form"><label>Código de la tarea<input id="task-link-key" maxlength="40" placeholder="DEMO-1234" required></label><label>Qué vincular<select id="task-link-selection"><option value="">Esta página</option></select></label><button class="quiet" type="submit">Guardar vínculo</button></form></details><p id="task-link-message" role="status" aria-live="polite"></p><details id="toc-wrap"><summary>En este documento</summary><nav id="toc" aria-label="Índice del documento"></nav></details><section id="marks-panel" hidden>
       <div class="mark-toolbar"><button id="mark-selection" type="button">Marcar selección</button><button id="mark-reload" type="button" class="quiet">Recargar marcas</button><span id="mark-count"></span><small id="mark-selection-hint">Selecciona texto dentro del documento.</small></div>
       <article id="reader-body"></article>
       <p id="mark-message" role="status" aria-live="polite"></p><button id="mark-cancel-relink" class="quiet" type="button" hidden>Cancelar reparación</button>

@@ -24,6 +24,7 @@ MANAGED_COMMANDS = (
     "pause",
     "resume",
     "catalog",
+    "task",
     "backup",
     "export-memory",
     "import-memory",
@@ -146,10 +147,19 @@ def create_parser(managed=False):
     project_resume.add_argument("project")
     project_resume.add_argument("--max-chars", type=int, default=8000)
     catalog = sub.add_parser("catalog", help="List authorized read-only content metadata")
-    catalog.add_argument("--kind", choices=["documentation", "note", "journal"])
+    catalog.add_argument("--kind", choices=["documentation", "note", "journal", "task"])
     catalog.add_argument("--source")
     catalog.add_argument("--offset", type=int, default=0)
     catalog.add_argument("--limit", type=int, default=25)
+    tasks = sub.add_parser(
+        "task", help="Read local issue context without treating it as verified knowledge"
+    )
+    task_actions = tasks.add_subparsers(dest="task_action", required=True)
+    task_list = task_actions.add_parser("list")
+    task_list.add_argument("--offset", type=int, default=0)
+    task_read = task_actions.add_parser("read")
+    task_read.add_argument("key")
+    task_read.add_argument("--format", choices=["json", "text"], default="json")
     viewer = sub.add_parser("viewer", help="Start the read-only local knowledge browser")
     viewer.add_argument("--port", type=int, default=0)
     export = sub.add_parser("annotations-export", help="Export the local annotation sidecar")
@@ -403,6 +413,17 @@ def main():
             from second_brain.workflow import resume_project
 
             result = resume_project(brain, args.project, args.max_chars)
+        elif args.command == "task":
+            from second_brain.task_pages import TaskPages
+
+            if args.task_action == "list":
+                result = Catalog(brain).list("task", offset=args.offset, limit=20)
+            else:
+                store = TaskPages(brain)
+                result = store.read(args.key)
+                if args.format == "text":
+                    print(store.content(args.key))
+                    return
         elif args.command == "catalog":
             result = Catalog(brain).list(args.kind, args.source, args.offset, args.limit)
         elif args.command in {"pause", "resume"}:

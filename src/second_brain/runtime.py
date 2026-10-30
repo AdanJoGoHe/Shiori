@@ -188,6 +188,18 @@ def install_version(root, bundle):
 
 
 def probe(root, version):
+    if scoped_path(root, "data/state/task-pages.json").exists():
+        command(
+            [
+                python_in(root, version),
+                "-I",
+                "-c",
+                "import sys; from second_brain.core import Brain, load_config; "
+                "from second_brain.task_pages import TaskPages; "
+                "TaskPages(Brain(load_config(sys.argv[1]))).export()",
+                root / "data/config.json",
+            ]
+        )
     command(
         [
             python_in(root, version),

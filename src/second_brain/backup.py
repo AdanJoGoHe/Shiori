@@ -9,6 +9,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from second_brain.annotations import Annotations, decode
+from second_brain.task_pages import TaskPages, decode as decode_tasks
 from second_brain.core import Brain, SLUG, TYPES, atomic_write, scoped_path, validate_note
 
 MAX_BYTES = 64_000_000
@@ -27,7 +28,7 @@ def local_path(value):
 
 
 def allowed_file(name):
-    return name in {"state/ledger.json", "state/annotations.json"} or (
+    return name in {"state/ledger.json", "state/annotations.json", "state/task-pages.json"} or (
         name.startswith("vault/") and VAULT_FILE.fullmatch(name[6:])
     )
 
@@ -86,6 +87,8 @@ def validate_files(files):
                 raise ValueError("Incomplete committed backup event")
     if "state/annotations.json" in files:
         decode(files["state/annotations.json"].decode("utf-8"))
+    if "state/task-pages.json" in files:
+        decode_tasks(files["state/task-pages.json"].decode("utf-8"))
     return ledger
 
 
@@ -104,6 +107,11 @@ def write_files(destination, files, config=None):
 
 
 def validate_scope_files(files, scope):
+    if (
+        "state/task-pages.json" in files
+        and decode_tasks(files["state/task-pages.json"].decode("utf-8"))["scope"] != scope
+    ):
+        raise ValueError("Task scope does not match backup")
     if "state/annotations.json" in files:
         annotations = decode(files["state/annotations.json"].decode("utf-8"))
         if annotations.get("scope", "personal") != scope:
@@ -125,7 +133,7 @@ def backup(brain, output):
         raise ValueError("Backup destination must be separate from vault and state")
     if output.exists():
         raise ValueError("Backup destination already exists")
-    with brain.lock, Annotations(brain).lock:
+    with brain.lock, Annotations(brain).lock, TaskPages(brain).lock:
         brain.ledger()
         files = {}
         for folder in sorted(set(TYPES.values()) | {"journal", "archive"}):
@@ -150,6 +158,9 @@ def backup(brain, output):
         annotation_path = scoped_path(brain.state, "annotations.json")
         if annotation_path.exists():
             files["state/annotations.json"] = read_bounded(annotation_path)
+        task_path = scoped_path(brain.state, "task-pages.json")
+        if task_path.exists():
+            files["state/task-pages.json"] = read_bounded(task_path)
         ledger = validate_files(files)
         validate_scope_files(files, brain.scope)
         for note_id in ledger["notes"]:

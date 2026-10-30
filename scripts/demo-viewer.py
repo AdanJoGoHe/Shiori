@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from second_brain.core import Brain
+from second_brain.task_pages import TaskPages
 from second_brain.viewer import Viewer, serve_viewer
 
 
@@ -115,6 +116,33 @@ El visor consulta contenido autorizado. Las lecciones pasan por la captura valid
                     tags=[category],
                 ),
             )
+        command_mark = next(
+            mark for mark in viewer.annotations.export()["items"] if "comando" in mark["tags"]
+        )
+        TaskPages(brain).save(
+            dict(
+                key="DEMO-1234",
+                title="Preparar el entorno de ejemplo",
+                status="in-progress",
+                body="## Contexto\n\nFicha ficticia para probar notas, marcas y referencias.\n\n"
+                "## Comprobar\n\n```powershell\npython -m venv .venv\n```\n",
+                project="second-brain",
+                tags=["demo", "entorno"],
+                version=0,
+                links=[
+                    dict(
+                        target=command_mark["document_id"],
+                        annotation_id=command_mark["id"],
+                        label="Comando de instalación",
+                    ),
+                    dict(
+                        target="https://example.test/issue/DEMO-1234",
+                        annotation_id=None,
+                        label="Incidencia de ejemplo",
+                    ),
+                ],
+            )
+        )
         serve_viewer(brain)
 
 

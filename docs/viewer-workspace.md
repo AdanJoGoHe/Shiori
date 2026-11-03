@@ -48,7 +48,7 @@ avancé hoy?». Biblioteca responde «¿dónde está esta página?»; Fragmentos
 El marcador de Shiori identifica el producto, y las citas reales son el elemento principal.
 Cada destino mantiene una identidad discreta en menú, cabeceras y etiquetas de resultados:
 
-| Destino | Símbolo | Acento |
+| Destino | Símbolo | Acento en Claro y Café Latte |
 | --- | --- | --- |
 | Inicio | 🗂 | Verde salvia |
 | Biblioteca | 📚 | Azul pizarra |
@@ -62,7 +62,10 @@ Los accesos a comandos, IPs, rutas e información importante también llevan sí
 se muestran con saturación reducida y siempre acompañan al texto; se ocultan al lector de pantalla
 para no repetir el nombre. El dibujo concreto depende de las fuentes del sistema. Los acentos
 identifican destinos, no estados de verificación, y no cambian los colores de las marcas guardadas.
-Oscuro usa pares de tinta/fondo propios; Claro y Café Latte conservan tonos oscuros legibles.
+**Oscuro · Luz de luna** usa fondos azul noche y acentos de loto azul: enlaces, foco,
+selección y texto destacado se distinguen del cuerpo de lectura. Navegación, buscador y
+lector se separan por niveles de fondo y líneas visibles. Conserva la preferencia `dark`,
+los colores de las marcas y los estados semánticos. Claro y Café Latte conservan sus paletas.
 No hay métricas inventadas, fuentes remotas, controles flotantes ni cambio de framework.
 
 El marco tiene un menú de 224 px, un ancho total máximo de 1680 px y márgenes de contenido de

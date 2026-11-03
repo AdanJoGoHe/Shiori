@@ -15,7 +15,8 @@ un comando útil, una dirección o una nota. [Entrada de diccionario](https://ko
   nombre legible en la interfaz.
 - Textos: frases cortas y palabras normales. Explicar qué puedes hacer sin sonar a anuncio
   ni a documento de empresa. Los detalles técnicos van en la guía que corresponda.
-- Temas: Claro, Oscuro y Café Latte conservan sus paletas y preferencias existentes. La marca
+- Temas: Claro, Oscuro · Luz de luna y Café Latte. Luz de luna usa azul noche y acentos de loto
+  azul, conservando la preferencia del oscuro anterior. La marca
   hereda la tinta de cada tema. Segoe UI para controles; Georgia para el nombre, disponible localmente.
 
 El nombre aparece en la biblioteca y la conexión MCP, donde figura como Shiori Personal.

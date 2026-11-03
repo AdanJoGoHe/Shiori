@@ -11,7 +11,13 @@ async function main(){
  const readerReady=()=>page.waitForFunction(()=>readerMarks.doc?.revision&&!document.getElementById('reader-find').disabled&&!readerMarks.busy);
  const documentation=async()=>{const panel=page.locator('.collections');if(!await panel.evaluate(el=>el.open))await panel.locator('summary').click();await panel.locator('[data-kind="documentation"]').click();await idle();};
  const search=async value=>{const response=page.waitForResponse(r=>r.url().includes('/api/items?')&&new URL(r.url()).searchParams.get('q')===value);await page.locator('#search').fill(value);await response;await idle();};
- await page.goto(input.url+'#biblioteca');await idle();
+ for(const [screen,scope] of [['favoritos','favorites'],['diario','journal'],['agent-log','agent-log'],['fragmentos','fragments'],['biblioteca','documents']]){
+  await page.goto(input.url+'#'+screen);await page.reload();
+  await page.waitForFunction(screen=>document.body.dataset.screen===screen,screen);
+  assert.equal(await page.locator('#view').inputValue(),scope);
+ }
+ checks.push('direct-links-and-reloads-select-the-matching-search-scope');
+ await idle();
  await documentation();
  await search('192.0.2.10');
  assert.match(await page.locator('.result p').innerText(),/192\.0\.2\.10/);

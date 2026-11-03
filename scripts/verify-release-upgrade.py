@@ -6,12 +6,15 @@ import json
 import subprocess
 import sys
 import tempfile
+from importlib.metadata import version
 from pathlib import Path
 
 from fastmcp import Client
 from packaging.version import Version
 
 from second_brain.runtime import python_in, release_bundle
+from second_brain.core import Brain, load_config
+from recovery_check import verify_recovery
 
 
 def main():
@@ -22,6 +25,9 @@ def main():
     old = release_bundle(args.previous_release.resolve())
     new = release_bundle(args.release_dir.resolve())
     assert Version(new["version"]) > Version(old["version"])
+    assert Version(version("second-brain")) == Version(new["version"]), (
+        "Run with the installed candidate wheel"
+    )
     with tempfile.TemporaryDirectory(prefix="shiori-release-pair-") as folder:
         root = Path(folder) / "Synthetic café memory"
         command = [
@@ -200,6 +206,32 @@ def main():
         assert cli("run", "project-resume", "release-check")["active_tasks"] == pack["active_tasks"]
         assert foreign.read_text(encoding="utf-8") == "Synthetic independent skill"
         assert (root / "data/config.json").read_bytes() == configuration
+        recovery = verify_recovery(
+            Brain(load_config(root / "data/config.json")), Path(folder) / "current-data"
+        )
+        protected = {path: path.read_bytes() for path in (root / "data/vault").rglob("*.md")}
+        protected.update({path: path.read_bytes() for path in (root / "data/state").glob("*.json")})
+        protected.update(
+            {
+                root / name: (root / name).read_bytes()
+                for name in ["installation.json", "shiori.py", "shiori.cmd"]
+            }
+        )
+        previous_checkpoints = set((root / "recovery").iterdir())
+        refused = cli("rollback", "--apply", success=False)
+        assert cli("status")["active"] == new["version"]
+        assert all(path.read_bytes() == raw for path, raw in protected.items())
+        checkpoints = set((root / "recovery").iterdir()) - previous_checkpoints
+        assert len(checkpoints) == 1
+        from second_brain.backup import read_bundle
+
+        _, saved, _ = read_bundle(next(iter(checkpoints)) / "memory", "work")
+        assert {
+            "state/favorites.json",
+            "state/task-pages.json",
+            "state/agent-log.json",
+        } <= saved.keys()
+        assert refused.returncode != 0
         print(
             json.dumps(
                 {
@@ -213,9 +245,12 @@ def main():
                         "notes-and-marks-preserved",
                         "rollback-preserves-newer-data",
                         "reactivation-preserves-task-state",
+                        "incompatible-rollback-refused-with-new-sidecars",
+                        "failed-rollback-preserves-data-launchers-and-recovery",
                     ]
                     + (["agent-cli-preview-apply-after-upgrade"] if agent_cli else []),
                     "data": "synthetic-only",
+                    "full_recovery": recovery,
                 }
             )
         )

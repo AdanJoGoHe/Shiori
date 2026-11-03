@@ -892,6 +892,6 @@ readerMarks = new ReaderMarks();
 const initialScreen = location.hash.slice(1);
 state.screen = screens[initialScreen] ? initialScreen : "inicio";
 state.kind = state.screen === "diario" ? "journal" : state.screen === "tareas" ? "task" : "";
-$("view").value = state.screen === "fragmentos" ? "fragments" : "documents";
+$("view").value = scopeForScreen(state.screen);
 viewerInfo().catch(() => { $("memory-scope").textContent = "Ámbito no disponible"; });
 load();

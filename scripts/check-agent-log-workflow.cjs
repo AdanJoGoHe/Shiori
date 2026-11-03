@@ -11,6 +11,7 @@ async function main(){
   const post=async(route,data)=>page.request.post(input.url+route,{data,headers:{Origin:new URL(input.url).origin}});
   const get=async(route)=>(await page.request.get(input.url+route)).json();
   await page.goto(input.url+'#agent-log');await page.locator('.log-event').first().waitFor();await idle();
+  assert.equal(await page.locator('#view').inputValue(),'agent-log');
   assert.match(await page.locator('#log-activation').innerText(),/desactivado/);
   await page.getByRole('button',{name:'Activar registro',exact:true}).click();await idle();
   assert.match(await page.locator('#log-activation').innerText(),/activado/);
@@ -57,6 +58,7 @@ async function main(){
   for(const width of [1280,1440,1920,720])for(const theme of ['light','dark','latte']){
     await page.setViewportSize({width,height:1000});await page.locator('#theme').selectOption(theme);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    await page.evaluate(()=>window.scrollTo(0,0));
     await page.screenshot({path:path.join(input.screenshots,`${input.scope}-${width}-${theme}.png`),fullPage:true});
   }
   checks.push('three-desktop-widths-themes-and-zoom-without-overflow');

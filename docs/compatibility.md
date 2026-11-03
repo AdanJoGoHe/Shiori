@@ -26,7 +26,7 @@ Personal-alpha evidence recorded on 2026-10-24. These observations do not automa
 | Memory export/import |17 synthetic transfer tests;31 transfer/recovery tests pass in a fresh installed wheel. Additive notes only, conflicts retained, original dates/bytes, pause/pending/concurrent/retry and complete backup after import checked |
 | Authenticated HTTP MCP |23 synthetic tests pass from source and installed wheel, including real TCP/CLI and a verified local TLS proxy; actual VPN/certificates and two-device Codex remain untested |
 | Browser | Edge155.0.4283.62; explorer/theme workflow and54 state/theme/viewport cases pass at1440/820/390px |
-| Themes | Claro/Oscuro · Luz de luna/Café Latte; existing `dark` preference retained; reload and same-origin server restart retain preference; blocked/invalid storage works; OS theme is not followed |
+| Themes | Claro/Oscuro/Café Latte; reload and same-origin server restart retain preference; blocked/invalid storage works; OS theme is not followed |
 | Annotations | Real-browser selection/repair/restart/recovery; six colors in all themes; touch emulation, not physical phone/IME certification |
 | Packaged installation | Fresh wheel0.1.0a1 with locked constraints; actual isolated provider search/probe and8 stdio tools pass |
 | Recovery/integration | Synthetic paused restore; owned upgrade/uninstall preserve unrelated settings; not two published-release upgrades |

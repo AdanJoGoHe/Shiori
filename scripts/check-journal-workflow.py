@@ -7,8 +7,9 @@ import shutil
 import subprocess
 import tempfile
 import threading
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from second_brain.core import Brain
 from second_brain.viewer import ViewerServer
@@ -17,6 +18,7 @@ from second_brain.viewer import ViewerServer
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inspect-script", type=Path)
+    parser.add_argument("--scope", choices=["personal", "work"], default="personal")
     args = parser.parse_args()
     node = os.environ.get("SB_TEST_NODE") or shutil.which("node")
     if not node:
@@ -25,16 +27,16 @@ def main():
         root = Path(folder).resolve()
         brain = Brain(
             dict(
-                scope="personal",
+                scope=args.scope,
                 timezone="Europe/Madrid",
                 vault_path=str(root / "vault"),
                 state_path=str(root / "state"),
             )
         )
-        now = brain.now()
+        now = datetime(2026, 11, 3, 12, tzinfo=ZoneInfo("Europe/Madrid"))
         brain.now = lambda: now - timedelta(days=1)
         base = dict(
-            scope="personal",
+            scope=args.scope,
             mode="journal-only",
             source_agent="manual",
             project="diario-demo",
@@ -61,6 +63,12 @@ def main():
         brain.capture(
             dict(
                 base,
+                mode="note",
+                id="lector-demo",
+                type="knowledge",
+                status="unverified",
+                body="Nota ficticia enlazada con el diario.",
+                evidence="Ejemplo sintético, no comprobación independiente.",
                 event_id="lector-final",
                 title="Lectura UTF-8 comprobada",
                 summary="El lector conserva los acentos y los saltos de línea.",
@@ -98,6 +106,17 @@ def main():
                 summary="Avance de un proyecto distinto.",
             )
         )
+        # The archive is not a rolling 31-day store; old months stay queryable.
+        brain.now = lambda: now.replace(month=5, day=12)
+        brain.capture(
+            dict(
+                base,
+                event_id="historical-may",
+                title="Trabajo de mayo",
+                summary="Resultado ficticio guardado hace varios meses.",
+            )
+        )
+        brain.now = lambda: now
         originals = {path: path.read_bytes() for path in brain.vault.rglob("*.md")}
         screenshots = Path(tempfile.mkdtemp(prefix="shiori-journal-screens-"))
         with ViewerServer(brain) as server:
@@ -106,7 +125,9 @@ def main():
             try:
                 result = subprocess.run(
                     [node, str(Path(__file__).with_suffix(".cjs"))],
-                    input=json.dumps({"url": server.url, "screenshots": str(screenshots)}),
+                    input=json.dumps(
+                        {"url": server.url, "screenshots": str(screenshots), "scope": args.scope}
+                    ),
                     capture_output=True,
                     text=True,
                     encoding="utf-8",

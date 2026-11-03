@@ -84,7 +84,7 @@ function snapshot() {
     offset: state.offset, selected: state.selected, markId: state.markId || null,
     query: $("search").value, view: $("view").value, color: $("fragment-color").value,
     filters: Object.fromEntries(filterKeys.map(key => [key, $(key).value])),
-    journal: Object.fromEntries(["journal-project", "journal-from", "journal-to", "journal-task-filter"].map(key => [key, $(key).value])),
+    journal: Object.fromEntries(["journal-project", "journal-period", "journal-from", "journal-to", "journal-task-filter"].map(key => [key, $(key).value])),
     focusId: document.activeElement.closest?.(".result")?.dataset.id, focusMark: document.activeElement.closest?.(".fragment-result")?.dataset.markId,
     y: window.scrollY, resultsScroll: $("results").scrollTop};
 }

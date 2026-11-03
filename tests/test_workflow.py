@@ -3,6 +3,7 @@ import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -377,6 +378,63 @@ def test_timeline_task_pages_and_closed_state_query(brain):
     assert resume_project(brain, "demo")["active_total"] == 0
     with pytest.raises(ValueError):
         read_journal(brain, view="tasks", project="demo", start_date="2026-10-01")
+
+
+@pytest.mark.parametrize(
+    "previous,current",
+    [
+        ("2026-03-28T23:59:00+01:00", "2026-03-29T03:01:00+02:00"),
+        ("2026-10-24T23:59:00+02:00", "2026-10-25T02:30:00+01:00"),
+        ("2026-10-31T23:59:00+01:00", "2026-11-01T00:01:00+01:00"),
+    ],
+)
+def test_day_timeline_distinguishes_historical_and_current_state(
+    brain, monkeypatch, previous, current
+):
+    moment = datetime.fromisoformat(previous).astimezone(ZoneInfo("Europe/Madrid"))
+    monkeypatch.setattr(brain, "now", lambda: moment)
+    brain.capture(capture(event_id="day-original", tasks=[task()]))
+    moment = datetime.fromisoformat(current).astimezone(ZoneInfo("Europe/Madrid"))
+    brain.capture(capture(event_id="day-latest", tasks=[task(1, "done")]))
+    brain.capture(event(project="demo"))
+    before = {path: path.read_bytes() for path in brain.vault.rglob("*.md")}
+    result = timeline(brain, previous[:10], previous[:10], "demo")
+    assert result["today"] == current[:10] and result["timezone"] == "Europe/Madrid"
+    assert result["total"] == 1
+    row = result["items"][0]
+    assert row["day"] == previous[:10]
+    change = row["task_changes"][0]
+    assert (change["status"], change["version"]) == ("open", 1)
+    assert (change["current_status"], change["current_version"]) == ("done", 2)
+    assert change["current_at"][:10] == current[:10]
+    today = timeline(brain, current[:10], current[:10], "demo")
+    assert (
+        next(item for item in today["items"] if item["event_id"] == "test-event")["note_id"]
+        == "git-version"
+    )
+    assert overview(brain, "demo")["active_total"] == 0
+    assert all(path.read_bytes() == content for path, content in before.items())
+
+
+def test_archive_reads_old_month_even_when_current_state_scan_is_partial(brain, monkeypatch):
+    import second_brain.workflow as workflow
+
+    monkeypatch.setattr(brain, "now", lambda: datetime.fromisoformat("2026-05-12T12:00:00+02:00"))
+    brain.capture(capture(event_id="old-may", summary="Trabajo de hace seis meses", tasks=[task()]))
+    monkeypatch.setattr(brain, "now", lambda: datetime.fromisoformat("2026-11-03T12:00:00+01:00"))
+    brain.capture(capture(event_id="current-november", summary="Trabajo reciente"))
+    current = snapshot(brain)
+    current["events"].pop("old-may")
+    current["tasks"].clear()
+    current["errors"].append({"reason": "history-limit"})
+    monkeypatch.setattr(workflow, "snapshot", lambda brain: current)
+    result = timeline(brain, "2026-05-01", "2026-05-31", "demo")
+    assert result["total"] == 1 and result["error_count"] == 1
+    assert result["items"][0]["event_id"] == "old-may"
+    change = result["items"][0]["task_changes"][0]
+    assert change["status"] == "open" and change["version"] == 1
+    assert change["current_status"] is None and change["current_version"] is None
+    assert timeline(brain, "2025-01-01", "2025-01-31")["total"] == 0
 
 
 def test_history_scan_limit_blocks_mutation_without_hiding_incompleteness(brain, monkeypatch):

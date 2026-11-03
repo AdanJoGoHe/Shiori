@@ -20,6 +20,7 @@ def load_entries(brain, days=None):
     entries, errors = [], []
     with brain.lock:
         ledger = brain.ledger()
+        note_ids = {path: note_id for note_id, path in ledger["notes"].items()}
         expected, sequences = {}, {}
         for sequence, (event_id, event) in enumerate(ledger["events"].items()):
             day = datetime.fromisoformat(event["at"]).date()
@@ -127,6 +128,7 @@ def load_entries(brain, days=None):
                             "project": project,
                             "content": text,
                             "content_truncated": False,
+                            "note_id": note_ids.get(event["path"]),
                             **data,
                             "structured": bool(structured),
                             "_sequence": sequences[match[1]],

@@ -26,6 +26,7 @@ MANAGED_COMMANDS = (
     "catalog",
     "task",
     "agent-log",
+    "favorites",
     "backup",
     "export-memory",
     "import-memory",
@@ -177,6 +178,23 @@ def create_parser(managed=False):
         log_list.add_argument("--" + key)
     log_list.add_argument("--offset", type=int, default=0)
     log_list.add_argument("--max-chars", type=int, default=8000)
+    favorites = sub.add_parser("favorites", help="Explicit favorites in this deployment only")
+    favorite_actions = favorites.add_subparsers(dest="favorite_action", required=True)
+    favorite_list = favorite_actions.add_parser("list")
+    favorite_list.add_argument("query", nargs="?", default="")
+    for key in ["project", "kind", "target", "id"]:
+        favorite_list.add_argument("--" + key)
+    favorite_list.add_argument("--tag", action="append")
+    favorite_list.add_argument("--offset", type=int, default=0)
+    favorite_list.add_argument("--max-chars", type=int, default=8000)
+    favorite_list.add_argument("--order", choices=["recent", "title"], default="recent")
+    favorite_save = favorite_actions.add_parser("save")
+    favorite_save.add_argument("--request-file", type=Path, required=True)
+    favorite_save.add_argument("--apply", action="store_true")
+    favorite_remove = favorite_actions.add_parser("remove")
+    favorite_remove.add_argument("id")
+    favorite_remove.add_argument("--version", type=int, required=True)
+    favorite_remove.add_argument("--apply", action="store_true")
     catalog = sub.add_parser("catalog", help="List authorized read-only content metadata")
     catalog.add_argument("--kind", choices=["documentation", "note", "journal", "task"])
     catalog.add_argument("--source")
@@ -482,6 +500,42 @@ def main():
                         "requested_enabled": args.log_action == "enable",
                     }
                 )
+        elif args.command == "favorites":
+            from second_brain.favorites import Favorites, valid_id
+            from second_brain.intake import read_json
+
+            favorites = Favorites(brain)
+            if args.favorite_action == "list":
+                filters = {
+                    key: getattr(args, key)
+                    for key in ["project", "kind", "target"]
+                    if getattr(args, key) is not None
+                }
+                if args.tag is not None:
+                    filters["tags"] = args.tag
+                result = favorites.query(
+                    args.query, filters, args.offset, args.max_chars, args.id, args.order
+                )
+            elif args.favorite_action == "save":
+                payload = read_json(args.request_file)
+                if args.apply:
+                    result = favorites.save(payload)
+                else:
+                    content, version = favorites.prepare(payload)
+                    result = dict(
+                        status="preview",
+                        favorite=content,
+                        version=version,
+                    )
+            else:
+                valid_id(args.id)
+                if not 1 <= args.version < 1_000_000:
+                    raise ValueError("Current favorite version required")
+                result = (
+                    favorites.remove(args.id, args.version)
+                    if args.apply
+                    else dict(status="preview", remove=args.id, version=args.version)
+                )
         elif args.command == "task":
             from second_brain.task_pages import TaskPages
 
@@ -514,7 +568,8 @@ def main():
                 result,
                 ensure_ascii=False,
                 indent=None
-                if args.command in {"context", "journal", "project-resume", "agent-log"}
+                if args.command
+                in {"context", "journal", "project-resume", "agent-log", "favorites"}
                 else 2,
             )
         )

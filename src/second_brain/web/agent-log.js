@@ -45,7 +45,7 @@ window.AgentLogUI = (() => {
         row.append(node("p",ref.label),node("p",ref.target,"log-target"));
         if (ref.kind==="file") row.append(node("p","Ruta informada; se conserva como texto.","log-meta"),button("Copiar ruta",()=>copy(ref.target)));
         else if (!ref.available) row.append(node("p","Referencia no disponible en las fuentes autorizadas.","log-meta"));
-        else if (ref.kind==="url") {const a=node("a","Abrir enlace");a.href=ref.target;a.target="_blank";a.rel="noopener noreferrer";row.append(a);}
+        else if (ref.kind==="url") {const a=node("a","Abrir enlace");a.href=ref.target;a.target="_blank";a.rel="noopener noreferrer";row.append(a,FavoritesUI.toggle(ref.target,ref.label,{project:item.project}));}
         else row.append(button(ref.kind==="journal-event"?"Abrir día del avance":"Abrir página",()=>openReference(ref.content_id)));
         pane.append(row);
       }

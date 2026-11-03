@@ -44,8 +44,28 @@ def validate_link(link):
             or "\\" in target
             or link["annotation_id"] is not None
             or any(
-                name.casefold() in {"token", "access_token", "api_key", "secret", "password"}
-                for name, _ in parse_qsl(url.query)
+                name.casefold().replace("-", "_")
+                in {
+                    "token",
+                    "access_token",
+                    "api_key",
+                    "secret",
+                    "password",
+                    "auth",
+                    "authorization",
+                    "key",
+                    "code",
+                    "sig",
+                    "signature",
+                    "client_secret",
+                    "credential",
+                    "x_amz_credential",
+                    "x_amz_signature",
+                    "x_goog_signature",
+                }
+                or name.casefold().replace("-", "_").endswith(("_token", "_secret", "_password"))
+                for name, _ in parse_qsl(url.query, keep_blank_values=True)
+                + parse_qsl(url.fragment, keep_blank_values=True)
             )
         ):
             raise ValueError("Use an HTTP(S) reference without credentials")

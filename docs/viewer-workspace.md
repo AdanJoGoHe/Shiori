@@ -32,7 +32,9 @@ en su propia rama; este visor usa las APIs y datos del despliegue seleccionado.
   el navegador, sin persistencia nueva de la aplicación. Recargar inicia la vista nombrada sin filtros.
   `#diario` conserva su destino. El tema sigue siendo la única preferencia en app localStorage.
 
-Favoritos sigue pendiente. Agent log ya guarda y consulta acciones informadas con activación
+Favoritos guarda páginas y referencias web por perfil, con búsqueda propia y acceso MCP/CLI.
+Inicio muestra hasta tres accesos recientes. [Uso y recuperación](favoritos.md).
+Agent log ya guarda y consulta acciones informadas con activación
 explícita por perfil; no observa herramientas automáticamente. El diario
 abre en Hoy y permite navegar por días y meses de cualquier antigüedad conservada.
 El lector mejorado continúa en la tarea #34.

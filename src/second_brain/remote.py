@@ -25,6 +25,7 @@ READ_TOOLS = frozenset(
         "read_memory",
         "read_journal",
         "read_agent_log",
+        "read_favorites",
         "resume_project",
         "classify_memory",
         "list_content",

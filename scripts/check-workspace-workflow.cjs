@@ -104,10 +104,11 @@ async function main() {
     check('navigation-restores-paging-and-keyboard-search');
     for (const screen of ['favoritos']) {
       await page.locator(`[data-screen="${screen}"]`).click();
-      await page.locator('#upcoming-panel').waitFor();
-      assert.match(await page.locator('#upcoming-title').innerText(), /pendiente/);
+      await page.locator('#favorites-panel').waitFor();
+      await page.waitForFunction(()=>document.getElementById('favorite-list').getAttribute('aria-busy')==='false');
+      assert.match(await page.locator('#favorite-list').innerText(), /No hay favoritos/);
     }
-    check('unimplemented-destinations-do-not-claim-storage-or-collection');
+    check('favorites-first-run-shows-explicit-storage-action');
     await page.locator('[data-screen="inicio"]').click(); await home();
     await page.locator('#search').fill('kubectl');
     await page.waitForFunction(() => document.querySelector('h1').textContent === 'Biblioteca');

@@ -27,8 +27,8 @@ The prototype remains separate from production source. See [desktop workspace](v
 Start on Inicio: bounded previews of important fragments, recent pages and today's journal.
 The server supplies scope and calendar day through capability-protected `api/viewer-info`;
 it accepts no parameters and returns no configuration paths. Refresh fetches the day again.
-The sidebar names Biblioteca, Fragmentos and Diario; Favoritos and Agent log explicitly say
-that their storage/APIs are pending. They do not simulate saved data or observe tools.
+The sidebar includes Biblioteca, Fragmentos, Tareas, Diario, [Favoritos](favoritos.md) and
+[Agent log](agent-log.md). Favorites persist per deployment; Agent log requires explicit activation.
 The library search remains visible, including when browsing the diary; typing there searches
 documents/fragments, not diary summaries. Diary project/date controls keep their own semantics.
 

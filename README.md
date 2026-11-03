@@ -14,6 +14,7 @@ Puedes buscar desde el navegador, la terminal o Codex.
 - Marcar comandos, IPs, rutas o cualquier trozo de texto con colores y etiquetas.
 - Encontrar esas marcas, ver un poco de contexto y copiar solo lo que necesitas.
 - Dejar que tu agente consulte notas anteriores y guarde lo que merece la pena recordar.
+- Consultar comandos, visitas y comprobaciones informados por el agente en un registro opcional.
 - Hacer copias y pasar notas entre instalaciones. Al importar, lo que ya tienes se conserva.
 - Elegir entre los temas Claro, Oscuro y Café Latte.
 
@@ -71,6 +72,7 @@ Para proteger o mover tus notas:
 - [Actualizar una instalación](docs/actualizacion.md).
 - [Aprender procedimientos y convertirlos en skills](docs/learning.md).
 - [Diario de avances y resúmenes por día o semana](docs/diario.md).
+- [Agent log: acciones del agente, comandos y referencias](docs/agent-log.md).
 - [CLI para agentes, vista previa y respaldo de MCP](docs/agent-cli.md).
 
 ## Cómo va el proyecto

@@ -58,6 +58,14 @@ async function main() {
     await page.locator('#task-link-selection').selectOption(mark.id);
     await page.locator('#task-link-form button[type="submit"]').click();
     await page.getByText('Vínculo guardado en DEMO-1234.', {exact:true}).waitFor();
+    let releaseLink, completeLink;
+    const delayedLink = new Promise(resolve=>{releaseLink=resolve;});
+    const linkDone = new Promise(resolve=>{completeLink=resolve;});
+    await page.route('**/api/tasks',async route=>{
+      if(route.request().method()==='POST' && route.request().postDataJSON().links?.length===3) {
+        const response=await route.fetch();await delayedLink;await route.fulfill({response});completeLink();
+      } else await route.continue();
+    });
     await page.locator('#task-link-selection').selectOption('');
     await page.locator('#task-link-form button[type="submit"]').click();
     await page.waitForFunction(async url => (await (await fetch(url+'api/tasks?key=DEMO-1234')).json()).item.links.length===3, input.url);
@@ -66,6 +74,9 @@ async function main() {
     await page.locator('#results .result').filter({hasText:'DEMO-1234'}).click();
     await idle(); await page.locator('#task-resources summary').click();
     await page.locator('#task-links .task-link-row').nth(2).waitFor();
+    releaseLink();await linkDone;await page.unroute('**/api/tasks');
+    await page.waitForFunction(()=>!document.querySelector('#task-link-form button[type="submit"]').disabled);
+    assert.equal(await page.locator('#task-context').isVisible(),true);
     for(const width of [1280,1440,1920]) {
       await page.setViewportSize({width,height:1000});
       for(const theme of ['light','dark','latte']) {

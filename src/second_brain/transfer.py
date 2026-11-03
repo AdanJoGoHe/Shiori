@@ -98,6 +98,7 @@ def import_memory(brain, source, apply=False):
                 "history",
                 "annotations",
                 "task-pages",
+                "agent-log",
                 "source-events",
                 "configuration",
             ],

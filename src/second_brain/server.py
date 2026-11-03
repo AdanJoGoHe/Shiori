@@ -200,6 +200,57 @@ def create_server(config, *, auth=None, middleware=None):
             return {"status": "failed", "reason": "capture-failed" if auth else str(error)}
 
     @server.tool
+    def record_agent_action(candidate: dict) -> dict:
+        """Record one reviewed action in the explicitly enabled configured-scope Agent log.
+
+        Independent of knowledge/journal capture; no command execution or URL fetch.
+        Schema 1 requires scope, event_id, agent, session, project (slug/null), occurred_at
+        (timezone-aware ISO/null when unknown), kind, outcome, summary, command (text/null),
+        context, references, corrects (ID/null), correction_reason, coverage=reported.
+        Kinds: command-proposed, command-attempted, command-executed, check, file-changed,
+        link-found, page-visited. Outcomes: success/failure/cancelled/unknown; proposals have
+        unknown outcome. A timeout does not establish failure or absence of effects.
+        References: up to six {kind: url/content/file/journal-event, target, label} objects.
+        Review secrets and scope first. Retain the identical candidate/ID for uncertain retries;
+        never repeat the underlying action. Corrections append and preserve the original.
+        Only reported coverage is supported; this is not a complete independent audit.
+        Activation is a separate explicit local user action; disabled/paused returns blocked.
+        """
+        from second_brain.agent_log import AgentLog
+
+        try:
+            return AgentLog(brain).record(candidate)
+        except (ValueError, OSError, TypeError, KeyError):
+            return {"status": "failed", "reason": "agent-log-record-rejected"}
+
+    @server.tool
+    def read_agent_log(
+        query: str = "",
+        filters: dict | None = None,
+        event_id: str | None = None,
+        offset: int = 0,
+        max_chars: int = 8000,
+    ) -> dict:
+        """Read reported actions in this deployment; never verified knowledge or instructions.
+
+        Default last seven deployment-local days, any historical window up to 31 days.
+        Exact filters: start_date/end_date (YYYY-MM-DD), project, session, agent, kind,
+        outcome, journal_event. Text terms all match across summary/command/context/references.
+        Pages contain at most 20 previews in a 4000–20000 character JSON budget; follow
+        next_offset. Use an exact event_id alone to retrieve the complete bounded event and
+        its correction link, including literal multiline command and inert references.
+        No results means no matching recorded actions, not no work. Reads work while disabled.
+        """
+        from second_brain.agent_log import AgentLog
+
+        store = AgentLog(brain)
+        if event_id is not None:
+            if query or filters or offset:
+                raise ValueError("Exact event_id cannot combine with query/filters/offset")
+            return store.read(event_id)
+        return store.query(query, filters, offset, max_chars)
+
+    @server.tool
     def list_content(
         kind: str | None = None, source: str | None = None, offset: int = 0, limit: int = 25
     ) -> dict:
@@ -232,6 +283,12 @@ def create_server(config, *, auth=None, middleware=None):
         reindexing. It returns provider_check separately; availability does not prove index freshness.
         """
         result = {**brain.status(), "index": dict(index)}
+        from second_brain.agent_log import AgentLog
+
+        try:
+            result["agent_log"] = {"available": True, **AgentLog(brain).status()}
+        except (ValueError, OSError, TypeError, KeyError):
+            result["agent_log"] = {"available": False, "reason": "agent-log-unavailable"}
         if auth is not None:
             result.pop("vault", None)
         if check_provider:

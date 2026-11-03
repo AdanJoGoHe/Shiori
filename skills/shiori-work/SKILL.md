@@ -115,3 +115,17 @@ and current; keep private skill files outside Git. Use only this work deployment
 personal fallback. Skip transcripts, raw logs and trivial outcomes. Archive deliberately
 obsolete/superseded workflows; missing usage records do not establish obsolescence.
 Use the current session for this pass; do not start another model process or bypass permissions.
+
+When `memory_status.agent_log` is available and enabled in this work deployment, record significant
+reviewed actions at checkpoints with `record_agent_action`, using its advertised schema and work
+scope. Keep one stable session ID, unique event IDs and exact submitted JSON for retries. Record
+observed results and distinguish proposed/attempted/executed commands and found links/visited pages.
+Use unknown outcome for uncertain effects and null occurrence time when unknown. Coverage is
+reported. Curate and redact text before sending; raw output, environment dumps and conversations
+stay outside the log. Link a committed work journal event with a journal-event reference rather
+than creating a progress capture for each command. Read actions with `read_agent_log` and outcomes
+with `read_journal`. Fallback: this installation's `shiori.cmd run agent-log` with `status`, `list`,
+`read <event-id>` or `record --event-file ...` (or `-` for stdin). Check an uncertain write by exact event ID and retry its
+original payload; never repeat the underlying command/visit. Logging failure does not block the
+task. If disabled/unavailable, skip it; only an explicit user action activates the configured work
+profile. Keep all work activity in this deployment. This skill installs no automatic collector.

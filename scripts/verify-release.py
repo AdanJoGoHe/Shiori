@@ -239,6 +239,8 @@ def main():
                 "list_content",
                 "read_journal",
                 "resume_project",
+                "read_agent_log",
+                "record_agent_action",
             }
             diary = await client.call_tool("read_journal", {"project": "release-test"})
             assert diary.data["scope"] == "personal" and diary.data["total"] >= 1
@@ -385,7 +387,7 @@ def main():
                     "install-uninstall-preserves-settings",
                     "owned-upgrade-preview-apply-retry",
                     "cli-capture-context-dedupe",
-                    "stdio-ten-tools",
+                    "stdio-twelve-tools",
                     "real-basic-memory-indexed-search",
                     "explicit-cli-mcp-provider-status",
                     "scope-secret-denial",

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from second_brain.core import Brain
 from second_brain.task_pages import TaskPages
+from second_brain.agent_log import AgentLog
 from second_brain.viewer import Viewer, serve_viewer
 
 
@@ -223,6 +224,85 @@ El visor consulta contenido autorizado. Las lecciones pasan por la captura valid
                     "blockers": ["Falta revisar la guía en una instalación nueva."],
                     "next_steps": ["Seguir la guía con un entorno desechable."],
                 },
+            )
+        )
+        log = AgentLog(brain)
+        log.configure(True, 0)  # Only this disposable synthetic profile.
+        action = dict(
+            schema_version=1,
+            scope="personal",
+            agent="manual",
+            session="demo-session",
+            project="second-brain",
+            occurred_at=None,
+            context="Registro ficticio para probar el visor.",
+            corrects=None,
+            correction_reason="",
+            coverage="reported",
+        )
+        log.record(
+            dict(
+                action,
+                event_id="demo-log-command",
+                kind="command-executed",
+                outcome="success",
+                summary="Comando de ejemplo informado",
+                command='python -m venv .venv\necho "Listo"',
+                references=[
+                    dict(
+                        kind="content",
+                        target="documentation:demo-docs:instalacion.md",
+                        label="Guía de instalación",
+                    ),
+                    dict(kind="journal-event", target="demo-day-done", label="Resultado del día"),
+                ],
+            )
+        )
+        for kind, event_id, summary in [
+            (
+                "link-found",
+                "demo-log-found",
+                "Referencia encontrada en la documentación de ejemplo",
+            ),
+            ("page-visited", "demo-log-visit", "Visita ficticia informada por el agente"),
+        ]:
+            log.record(
+                dict(
+                    action,
+                    event_id=event_id,
+                    kind=kind,
+                    outcome="unknown",
+                    summary=summary,
+                    command=None,
+                    references=[
+                        dict(
+                            kind="url",
+                            target="https://example.test/guide",
+                            label="Referencia ficticia",
+                        )
+                    ],
+                )
+            )
+        log.record(
+            dict(
+                action,
+                event_id="demo-log-check",
+                kind="check",
+                outcome="failure",
+                summary="Comprobación ficticia fallida",
+                command="python -m pytest tests/example.py",
+                references=[],
+            )
+        )
+        log.record(
+            dict(
+                action,
+                event_id="demo-log-timeout",
+                kind="command-executed",
+                outcome="unknown",
+                summary="Resultado incierto tras un timeout ficticio",
+                command="python example.py",
+                references=[],
             )
         )
         serve_viewer(brain)

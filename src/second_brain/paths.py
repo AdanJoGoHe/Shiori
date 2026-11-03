@@ -133,6 +133,7 @@ def plan(config_path, overrides):
             "annotations.json",
             "annotations.previous.json",
             "task-pages.json",
+            "agent-log.json",
             "install-manifest.json",
             "paused",
         ]

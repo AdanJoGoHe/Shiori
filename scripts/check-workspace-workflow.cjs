@@ -102,7 +102,7 @@ async function main() {
     await page.keyboard.press('Control+k');
     assert.equal(await page.locator('#search').evaluate(el=>el===document.activeElement), true);
     check('navigation-restores-paging-and-keyboard-search');
-    for (const screen of ['favoritos', 'agent-log']) {
+    for (const screen of ['favoritos']) {
       await page.locator(`[data-screen="${screen}"]`).click();
       await page.locator('#upcoming-panel').waitFor();
       assert.match(await page.locator('#upcoming-title').innerText(), /pendiente/);

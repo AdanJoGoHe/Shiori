@@ -23,6 +23,46 @@ def task_key(value):
     return key
 
 
+def validate_link(link):
+    if not isinstance(link, dict) or set(link) != {"target", "annotation_id", "label"}:
+        raise ValueError("Invalid task link")
+    target = safe_text(link["target"], 2000)
+    if not safe_text(link["label"], 160).strip():
+        raise ValueError("Link label required")
+    if link["annotation_id"] is not None and (
+        not isinstance(link["annotation_id"], str)
+        or not re.fullmatch(r"[a-f0-9]{32}", link["annotation_id"])
+    ):
+        raise ValueError("Invalid fragment ID")
+    url = urlsplit(target)
+    if url.scheme in {"http", "https"}:
+        if (
+            not url.hostname
+            or url.username is not None
+            or url.password is not None
+            or any(c.isspace() or ord(c) < 32 for c in target)
+            or "\\" in target
+            or link["annotation_id"] is not None
+            or any(
+                name.casefold() in {"token", "access_token", "api_key", "secret", "password"}
+                for name, _ in parse_qsl(url.query)
+            )
+        ):
+            raise ValueError("Use an HTTP(S) reference without credentials")
+        url.port  # Validate malformed ports without contacting the destination.
+    else:
+        parts = target.split(":", 2)
+        if (
+            len(parts) != 3
+            or parts[0] not in {"documentation", "note", "journal", "task"}
+            or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,99}", parts[1])
+            or not parts[2]
+            or "\\" in parts[2]
+            or any(part in {"", ".", ".."} for part in parts[2].split("/"))
+        ):
+            raise ValueError("Use an authorized content ID or HTTP(S) URL")
+
+
 def validate_fields(value):
     if not isinstance(value, dict) or set(value) != FIELDS:
         raise ValueError("Invalid task fields")
@@ -37,43 +77,8 @@ def validate_fields(value):
         raise ValueError("At most forty links per task")
     seen = set()
     for link in links:
-        if not isinstance(link, dict) or set(link) != {"target", "annotation_id", "label"}:
-            raise ValueError("Invalid task link")
-        target = safe_text(link["target"], 2000)
-        if not safe_text(link["label"], 160).strip():
-            raise ValueError("Link label required")
-        if link["annotation_id"] is not None and (
-            not isinstance(link["annotation_id"], str)
-            or not re.fullmatch(r"[a-f0-9]{32}", link["annotation_id"])
-        ):
-            raise ValueError("Invalid fragment ID")
-        url = urlsplit(target)
-        if url.scheme in {"http", "https"}:
-            if (
-                not url.hostname
-                or url.username is not None
-                or url.password is not None
-                or any(c.isspace() or ord(c) < 32 for c in target)
-                or "\\" in target
-                or link["annotation_id"] is not None
-                or any(
-                    name.casefold() in {"token", "access_token", "api_key", "secret", "password"}
-                    for name, _ in parse_qsl(url.query)
-                )
-            ):
-                raise ValueError("Use an HTTP(S) reference without credentials")
-            url.port  # Validate malformed ports without contacting the destination.
-        else:
-            parts = target.split(":", 2)
-            if (
-                len(parts) != 3
-                or parts[0] not in {"documentation", "note", "journal", "task"}
-                or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,99}", parts[1])
-                or not parts[2]
-                or "\\" in parts[2]
-                or any(part in {"", ".", ".."} for part in parts[2].split("/"))
-            ):
-                raise ValueError("Use an authorized content ID or HTTP(S) URL")
+        validate_link(link)
+        target = link["target"]
         identity = (target, link["annotation_id"])
         if identity in seen:
             raise ValueError("Duplicate task link")

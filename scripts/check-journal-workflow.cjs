@@ -143,6 +143,7 @@ async function main() {
   check('concurrent-stale-version-is-rejected');
   await page.locator('.journal-entry').first().getByRole('button',{name:'Abrir día completo'}).click();
   await page.locator('#reader-content').waitFor({state:'visible'});
+  await page.locator('#reader-body').getByText(/Outcome:/).first().waitFor();
   assert.ok(!(await page.locator('#reader-body').innerText()).includes('shiori-data:'));
   await page.locator('.collection[data-kind="journal"]').click();
   await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));

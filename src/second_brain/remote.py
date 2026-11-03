@@ -24,6 +24,7 @@ READ_TOOLS = frozenset(
         "get_context",
         "read_memory",
         "read_journal",
+        "read_agent_log",
         "resume_project",
         "classify_memory",
         "list_content",
@@ -140,7 +141,11 @@ class RemotePolicy(Middleware):
             token is not None
             and "memory:read" in token.scopes
             and (
-                name in READ_TOOLS or (name == "capture_memory" and "memory:write" in token.scopes)
+                name in READ_TOOLS
+                or (
+                    name in {"capture_memory", "record_agent_action"}
+                    and "memory:write" in token.scopes
+                )
             )
         )
         if not permitted:
@@ -154,7 +159,9 @@ class RemotePolicy(Middleware):
         token = get_access_token()
         if token is None or "memory:read" not in token.scopes:
             return []
-        allowed = READ_TOOLS | ({"capture_memory"} if "memory:write" in token.scopes else set())
+        allowed = READ_TOOLS | (
+            {"capture_memory", "record_agent_action"} if "memory:write" in token.scopes else set()
+        )
         return [tool for tool in await call_next(context) if tool.name in allowed]
 
 

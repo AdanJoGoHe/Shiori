@@ -85,6 +85,7 @@ function snapshot() {
     query: $("search").value, view: $("view").value, color: $("fragment-color").value,
     filters: Object.fromEntries(filterKeys.map(key => [key, $(key).value])),
     journal: Object.fromEntries(["journal-project", "journal-period", "journal-from", "journal-to", "journal-task-filter"].map(key => [key, $(key).value])),
+    log: AgentLogUI.snapshot(),
     focusId: document.activeElement.closest?.(".result")?.dataset.id, focusMark: document.activeElement.closest?.(".fragment-result")?.dataset.markId,
     y: window.scrollY, resultsScroll: $("results").scrollTop};
 }
@@ -107,7 +108,11 @@ function showScreen() {
   document.title = "Shiori · " + screens[screen][0];
   $("home-panel").hidden = screen !== "inicio";
   $("tasks-panel").hidden = screen !== "tareas";
-  $("upcoming-panel").hidden = !["favoritos", "agent-log"].includes(screen);
+  $("upcoming-panel").hidden = screen !== "favoritos";
+  $("agent-log-panel").hidden = screen !== "agent-log";
+  document.querySelector(".search-options").hidden = screen === "agent-log";
+  document.querySelector(".search-label").textContent = screen === "agent-log" ? "Buscar en Agent log" : "Buscar en tu biblioteca";
+  $("search").placeholder = screen === "agent-log" ? "Un comando, una acción, un enlace registrado…" : "Un comando, una página, algo que aprendiste…";
   document.querySelector(".toolbar").hidden = !library;
   $("category-manager").hidden = !library;
   document.querySelector(".workspace").hidden = !library && !(screen === "inicio" && state.selected);
@@ -452,13 +457,15 @@ function fragmentResult(item, categories, compact = false) {
 async function load() {
   const number = ++requestNumber;
   JournalUI.hide();
+  AgentLogUI.hide();
   showScreen();
   remember();
   if (state.screen === "inicio") { warning(""); return loadHome(number); }
-  if (["favoritos", "agent-log"].includes(state.screen)) {
+  if (state.screen === "agent-log") { warning(""); return AgentLogUI.load(); }
+  if (state.screen === "favoritos") {
     warning("");
-    $("upcoming-title").textContent = state.screen === "favoritos" ? "Favoritos persistentes · pendiente" : "Registro de acciones · pendiente";
-    $("upcoming-description").textContent = state.screen === "favoritos" ? "Guardar y recuperar páginas desde el visor y la IA llegará con el sistema de favoritos. Aún no se guardan favoritos aquí." : "Aquí podrás consultar comandos, visitas y enlaces registrados por el agente. El registro y sus consultas todavía no están implementados.";
+    $("upcoming-title").textContent = "Favoritos persistentes · pendiente";
+    $("upcoming-description").textContent = "Guardar y recuperar páginas desde el visor y la IA llegará con el sistema de favoritos. Aún no se guardan favoritos aquí.";
     return;
   }
   if (state.kind === "journal") {
@@ -600,6 +607,13 @@ async function openItem(id, markId = null, record = true) {
     if (markId) readerMarks.focusMark(markId);
   }
 }
+async function openReference(contentId, kind = "") {
+  const pending = navigate("biblioteca", kind), route = routeSequence;
+  await pending;
+  if (route !== routeSequence) return;
+  await openItem(contentId, null, false);
+  if (route === routeSequence) remember();
+}
 $("reader-body").addEventListener("click", event => {
   const link = event.target.closest("a");
   if (!link) return;
@@ -636,6 +650,7 @@ window.addEventListener("popstate", async () => {
       $(key).value = saved.filters[key];
     }
     for (const [key, value] of Object.entries(saved.journal || {})) $(key).value = value;
+    AgentLogUI.restore(saved.log);
     const pending = load(), request = requestNumber;
     await pending;
     if (route !== routeSequence || request !== requestNumber) return;
@@ -657,7 +672,8 @@ $("search").oninput = () => {
   clearTimeout(timer);
   state.offset = 0;
   timer = setTimeout(() => {
-    if (!["biblioteca", "fragmentos", "tareas"].includes(state.screen)) navigate($("view").value === "fragments" ? "fragmentos" : "biblioteca");
+    if (state.screen === "agent-log") AgentLogUI.load(true);
+    else if (!["biblioteca", "fragmentos", "tareas"].includes(state.screen)) navigate($("view").value === "fragments" ? "fragmentos" : "biblioteca");
     else load();
   }, 250);
 };
@@ -672,6 +688,7 @@ $("view").onchange = () => {
 };
 $("fragment-color").onchange = () => { state.offset = 0; load(); };
 $("clear").onclick = () => {
+  if (state.screen === "agent-log") { $("log-clear").click(); return; }
   state.categories = [];
   $("fragment-color").value = "";
   clearTimeout(timer);
@@ -781,6 +798,7 @@ $("task-link-panel").ontoggle = () => {
 };
 $("task-link-form").onsubmit = async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
+  const number = readerNumber;
   const doc = readerMarks.doc?.item, selected = $("task-link-selection").value;
   if (!doc) { button.disabled = false; return; }
   try {
@@ -789,18 +807,23 @@ $("task-link-form").onsubmit = async event => {
     const link = {target: doc.id, annotation_id: selected || null, label: mark ? (mark.title || mark.quote.slice(0, 120)) : doc.title};
     const links = data.item.links.some(value => value.target === link.target && value.annotation_id === link.annotation_id) ? data.item.links : [...data.item.links, link];
     await api("api/tasks", "POST", {...taskPayload(data.item), links});
-    $("task-link-message").textContent = "Vínculo guardado en " + data.item.key + ".";
-    if (openedTask?.key === data.item.key) await taskContext(doc, readerNumber);
+    if (number === readerNumber) {
+      $("task-link-message").textContent = "Vínculo guardado en " + data.item.key + ".";
+      if (openedTask?.key === data.item.key) await taskContext(doc, number);
+    }
   } catch (error) { $("task-link-message").textContent = "No se guardó el vínculo. Comprueba el código y actualiza si la tarea cambió. " + error.message; }
   finally { button.disabled = false; }
 };
 $("task-web-form").onsubmit = async event => {
   event.preventDefault(); const button = event.submitter, item = openedTask;
+  const number = readerNumber;
   if (!item) return; button.disabled = true;
   try {
     await api("api/tasks", "POST", {...taskPayload(item), links: [...item.links, {target: $("task-web-url").value, annotation_id: null, label: $("task-web-label").value}]});
-    $("task-web-form").reset();
-    if (openedTask?.key === item.key) await taskContext(readerMarks.doc.item, readerNumber);
+    if (number === readerNumber) {
+      $("task-web-form").reset();
+      if (openedTask?.key === item.key) await taskContext(readerMarks.doc.item, number);
+    }
   } catch (error) { $("task-link-message").textContent = error.message; }
   finally { button.disabled = false; }
 };

@@ -97,8 +97,8 @@ def test_real_http_roles_shared_store_idempotency_and_revocation(remote):
     async def scenario():
         async with Client(url, auth=READER) as reader, Client(url, auth=WRITER) as writer:
             assert "capture_memory" not in {t.name for t in await reader.list_tools()}
-            assert len(await writer.list_tools()) == 10
-            assert len(await reader.list_tools()) == 9  # No cross-client permission cache.
+            assert len(await writer.list_tools()) == 12
+            assert len(await reader.list_tools()) == 10  # No cross-client permission cache.
             before = brain.ledger_path.read_bytes() if brain.ledger_path.exists() else None
             denied = await reader.call_tool(
                 "capture_memory", {"candidate": event()}, raise_on_error=False
@@ -155,7 +155,7 @@ def test_real_http_roles_shared_store_idempotency_and_revocation(remote):
             reduced = json.loads(credentials.read_text(encoding="utf-8"))
             reduced["clients"][0]["permission"] = "read"
             credentials.write_text(json.dumps(reduced), encoding="utf-8")
-            assert len(await writer.list_tools()) == 9
+            assert len(await writer.list_tools()) == 10
             denied = await writer.call_tool(
                 "capture_memory",
                 {"candidate": event(event_id="permission-reduced")},
@@ -171,6 +171,28 @@ def test_real_http_roles_shared_store_idempotency_and_revocation(remote):
             assert (await writer.call_tool("capture_memory", {"candidate": event()})).data[
                 "status"
             ] == "duplicate"
+
+    asyncio.run(scenario())
+
+
+def test_remote_agent_log_read_write_roles(remote):
+    from second_brain.agent_log import AgentLog
+    from test_agent_log import action
+
+    url, credentials, brain = remote
+    AgentLog(brain).configure(True, 0)
+
+    async def scenario():
+        async with Client(url, auth=READER) as reader, Client(url, auth=WRITER) as writer:
+            denied = await reader.call_tool(
+                "record_agent_action", {"candidate": action()}, raise_on_error=False
+            )
+            assert denied.is_error
+            assert AgentLog(brain).status()["total"] == 0
+            saved = await writer.call_tool("record_agent_action", {"candidate": action()})
+            assert saved.data["status"] == "saved"
+            result = await reader.call_tool("read_agent_log", {"event_id": "example-action"})
+            assert result.data["item"]["command"] == action()["command"]
 
     asyncio.run(scenario())
 
@@ -417,7 +439,7 @@ def test_real_cli_process_no_credentials_or_tool_content_in_logs(brain, tmp_path
                 url, headers={"Host": proxy_host} if proxy_host else None
             )
             async with Client(transport, auth=READER) as reader:
-                assert len(await reader.list_tools()) == 9
+                assert len(await reader.list_tools()) == 10
                 bad = await reader.call_tool(
                     "get_context",
                     {"query": "CLI-PRIVATE-SENTINEL", "max_chars": "INVALID-PRIVATE-SENTINEL"},
@@ -619,7 +641,7 @@ def test_verified_tls_proxy_preserves_host_auth_roles_and_revocation(remote, tmp
         async def scenario():
             transport = StreamableHttpTransport(url, headers=host, verify=trusted)
             async with Client(transport, auth=READER) as reader:
-                assert len(await reader.list_tools()) == 9
+                assert len(await reader.list_tools()) == 10
                 denied = await reader.call_tool(
                     "capture_memory", {"candidate": event()}, raise_on_error=False
                 )
@@ -627,7 +649,7 @@ def test_verified_tls_proxy_preserves_host_auth_roles_and_revocation(remote, tmp
                 assert not list(brain.vault.rglob("*.md"))
                 writer_transport = StreamableHttpTransport(url, headers=host, verify=trusted)
                 async with Client(writer_transport, auth=WRITER) as writer:
-                    assert len(await writer.list_tools()) == 10
+                    assert len(await writer.list_tools()) == 12
                     assert (await writer.call_tool("capture_memory", {"candidate": event()})).data[
                         "status"
                     ] == "saved"

@@ -104,15 +104,8 @@ window.JournalUI = (() => {
     wrap.append(input);
     return {wrap, input};
   }
-  async function openReference(contentId, kind = "") {
-    const pending = navigate("biblioteca", kind), route = routeSequence;
-    await pending;
-    if (route !== routeSequence) return;
-    await openItem(contentId, null, false);
-    if (route === routeSequence) remember();
-  }
   function sourceButton(row) {
-    return action("Abrir día completo", () => openReference("journal:" + scope + ":" + row.path));
+    return action("Abrir día completo", () => openReference("journal:" + scope + ":" + row.path.replace(/^journal\//, "")));
   }
   function taskChanges(row) {
     const details = node("details", undefined, "journal-recorded-tasks");
@@ -178,6 +171,7 @@ window.JournalUI = (() => {
     if (row.entry_truncated) article.append(node("p", "Vista abreviada. Abre el día completo para ver todo el texto.", "journal-meta"));
     const links = node("div", undefined, "journal-entry-links");
     links.append(sourceButton(row));
+    links.append(action("Ver acciones asociadas", () => AgentLogUI.openJournal(row.event_id, row.day, row.project)));
     if (row.note_id) links.append(action("Abrir nota vinculada", () => openReference("note:" + scope + ":" + row.note_id, "note")));
     article.append(links);
     if (!historical && row.project && !row.superseded_by && !row.entry_truncated) extra.append(correction(row));

@@ -20,6 +20,7 @@ from second_brain.catalog import Catalog, catalog_diagnostics
 from second_brain.core import SLUG, safe_text
 from second_brain.workflow import JournalConflict
 from second_brain.task_pages import TaskPages, task_key
+from second_brain.agent_log import AgentLog
 
 
 def normalized(text):
@@ -507,7 +508,16 @@ class ViewerHandler(BaseHTTPRequestHandler):
         route = parsed.path[len(prefix) :]
         try:
             if (
-                route in ("", "app.js", "journal.js", "style.css", "theme.js", "highlights.js")
+                route
+                in (
+                    "",
+                    "app.js",
+                    "journal.js",
+                    "agent-log.js",
+                    "style.css",
+                    "theme.js",
+                    "highlights.js",
+                )
                 and not parsed.query
             ):
                 name = route or "index.html"
@@ -515,6 +525,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     "index.html": "text/html",
                     "app.js": "text/javascript",
                     "journal.js": "text/javascript",
+                    "agent-log.js": "text/javascript",
                     "theme.js": "text/javascript",
                     "highlights.js": "text/javascript",
                     "style.css": "text/css",
@@ -524,6 +535,51 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     files("second_brain").joinpath("web", name).read_bytes(),
                     mime + "; charset=utf-8",
                 )
+            elif route == "api/agent-log":
+                args = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=12)
+                if set(args) - {
+                    "event_id",
+                    "query",
+                    "offset",
+                    "start_date",
+                    "end_date",
+                    "project",
+                    "session",
+                    "agent",
+                    "kind",
+                    "outcome",
+                    "journal_event",
+                } or any(len(values) != 1 for values in args.values()):
+                    raise ValueError("Invalid Agent log query")
+                values = {key: value[0] for key, value in args.items() if value[0]}
+                store = AgentLog(self.server.viewer.catalog.brain)
+                if "event_id" in args:
+                    if set(values) != {"event_id"}:
+                        raise ValueError("Exact Agent log event ID must be used alone")
+                    result = store.read(values["event_id"])
+                    allowed = {row["id"] for row in self.server.viewer.catalog.snapshot()["items"]}
+                    ledger = self.server.viewer.catalog.brain.ledger()
+                    references = []
+                    for ref in result["item"]["references"]:
+                        content_id = ref["target"] if ref["kind"] == "content" else None
+                        if ref["kind"] == "journal-event":
+                            event = ledger["events"].get(ref["target"])
+                            if event and event["status"] == "committed":
+                                from datetime import datetime
+
+                                at = datetime.fromisoformat(event["at"])
+                                content_id = f"journal:{result['scope']}:{at:%Y}/{at:%Y-%m-%d}.md"
+                        references.append(
+                            {
+                                **ref,
+                                "content_id": content_id,
+                                "available": ref["kind"] == "url" or content_id in allowed,
+                            }
+                        )
+                    self.reply(200, {**result, "references": references})
+                else:
+                    query, offset = values.pop("query", ""), int(values.pop("offset", "0"))
+                    self.reply(200, store.query(query, values, offset))
             elif route == "api/tasks":
                 args = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=1)
                 if set(args) != {"key"} or len(args["key"]) != 1:
@@ -613,19 +669,25 @@ class ViewerHandler(BaseHTTPRequestHandler):
         undo_route = parsed.path == self.server.prefix + "/api/annotations/undo"
         journal_route = parsed.path == self.server.prefix + "/api/journal"
         tasks_route = parsed.path == self.server.prefix + "/api/tasks"
+        log_route = parsed.path == self.server.prefix + "/api/agent-log"
+        log_config_route = parsed.path == self.server.prefix + "/api/agent-log/config"
         if (
             parsed.path != self.server.prefix + "/api/annotations"
             and not category_route
             and not undo_route
             and not journal_route
             and not tasks_route
+            and not log_route
+            and not log_config_route
         ) or len(self.path) > 5000:
             self.deny_write()
             return
         if category_route and self.command == "DELETE":
             self.deny_write()
             return
-        if (undo_route or journal_route or tasks_route) and self.command != "POST":
+        if (
+            undo_route or journal_route or tasks_route or log_route or log_config_route
+        ) and self.command != "POST":
             self.deny_write()
             return
         if not self.authorized(write=True):
@@ -663,7 +725,19 @@ class ViewerHandler(BaseHTTPRequestHandler):
             if len(raw) != int(lengths[0]):
                 raise ValueError("Incomplete JSON body")
             payload = json.loads(raw.decode("utf-8"))
-            if tasks_route:
+            if log_route or log_config_route:
+                store = AgentLog(self.server.viewer.catalog.brain)
+                if log_config_route:
+                    if not isinstance(payload, dict) or set(payload) != {"enabled", "revision"}:
+                        raise ValueError(
+                            "Agent log activation requires enabled and current revision"
+                        )
+                    result = store.configure(payload["enabled"], payload["revision"])
+                else:
+                    result = store.record(payload)
+                self.reply(201 if result.get("status") == "saved" else 200, result)
+                return
+            elif tasks_route:
                 if not isinstance(payload, dict):
                     raise ValueError("Task payload must be an object")
                 existing = {row["id"] for row in self.server.viewer.catalog.snapshot()["items"]}

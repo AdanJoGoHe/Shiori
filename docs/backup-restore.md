@@ -35,16 +35,17 @@ Included:
 - Daily journal Markdown and content-addressed archived note revisions.
 - Exact ledger bytes, including committed IDs/fingerprints and pending events.
 - Current annotations/categories, if present, retaining schema and bytes.
+- Local task pages and the opt-in Agent log, including activation and correction history.
 - Source timezone and pause state in the manifest. Restored capture is **always paused**.
 
 Excluded: original machine/host configuration and paths, configured documentation roots and their
 files, root README/unmanaged top-level folders, vault Git history, Basic Memory indexes/config,
-logs, locks, ACL snapshots, annotation previous snapshot and session undo tickets. Unexpected
+raw process/access logs, locks, ACL snapshots, annotation previous snapshot and session undo tickets. Unexpected
 files inside the standard canonical folders fail explicitly; unsupported layouts are not silently
 reinterpreted. The rotating annotation snapshot remains independent of this current-state bundle.
 The backup is a defined recovery set, not a disk image or full machine deployment export.
 
-Capture and annotation locks protect the in-memory snapshot; files are copied byte-for-byte,
+Capture, annotation, task-page and Agent log locks protect the in-memory snapshot; files are copied byte-for-byte,
 including Unicode/newlines. Other tools editing files directly must be quiescent: they bypass
 these locks. Bounds: 5000 files, 8 MB per file and 64 MB total payload; restore checks the same
 limits. Missing managed notes, invalid ledger/annotation schemas and incomplete committed journal

@@ -25,6 +25,7 @@ MANAGED_COMMANDS = (
     "resume",
     "catalog",
     "task",
+    "agent-log",
     "backup",
     "export-memory",
     "import-memory",
@@ -146,6 +147,36 @@ def create_parser(managed=False):
     )
     project_resume.add_argument("project")
     project_resume.add_argument("--max-chars", type=int, default=8000)
+    log = sub.add_parser("agent-log", help="Opt-in reported actions, separate from knowledge")
+    log_actions = log.add_subparsers(dest="log_action", required=True)
+    log_actions.add_parser("status")
+    for action in ["enable", "disable"]:
+        toggle = log_actions.add_parser(action)
+        toggle.add_argument("--apply", action="store_true")
+    record = log_actions.add_parser("record")
+    record.add_argument(
+        "--event-file",
+        type=Path,
+        required=True,
+        help="Reviewed event JSON, or - for stdin; keep exact payload for retries",
+    )
+    log_read = log_actions.add_parser("read")
+    log_read.add_argument("event_id")
+    log_list = log_actions.add_parser("list")
+    log_list.add_argument("query", nargs="?", default="")
+    for key in [
+        "start-date",
+        "end-date",
+        "project",
+        "session",
+        "agent",
+        "kind",
+        "outcome",
+        "journal-event",
+    ]:
+        log_list.add_argument("--" + key)
+    log_list.add_argument("--offset", type=int, default=0)
+    log_list.add_argument("--max-chars", type=int, default=8000)
     catalog = sub.add_parser("catalog", help="List authorized read-only content metadata")
     catalog.add_argument("--kind", choices=["documentation", "note", "journal", "task"])
     catalog.add_argument("--source")
@@ -413,6 +444,44 @@ def main():
             from second_brain.workflow import resume_project
 
             result = resume_project(brain, args.project, args.max_chars)
+        elif args.command == "agent-log":
+            from second_brain.agent_log import AgentLog
+            from second_brain.intake import read_json
+
+            log = AgentLog(brain)
+            if args.log_action == "record":
+                result = log.record(read_json(args.event_file))
+            elif args.log_action == "read":
+                result = log.read(args.event_id)
+            elif args.log_action == "list":
+                filters = {
+                    key: getattr(args, key)
+                    for key in [
+                        "start_date",
+                        "end_date",
+                        "project",
+                        "session",
+                        "agent",
+                        "kind",
+                        "outcome",
+                        "journal_event",
+                    ]
+                    if getattr(args, key) is not None
+                }
+                result = log.query(args.query, filters, args.offset, args.max_chars)
+            else:
+                current = log.status()
+                result = (
+                    current
+                    if args.log_action == "status"
+                    else log.configure(args.log_action == "enable", current["revision"])
+                    if args.apply
+                    else {
+                        "status": "preview",
+                        **current,
+                        "requested_enabled": args.log_action == "enable",
+                    }
+                )
         elif args.command == "task":
             from second_brain.task_pages import TaskPages
 
@@ -444,10 +513,14 @@ def main():
             json.dumps(
                 result,
                 ensure_ascii=False,
-                indent=None if args.command in {"context", "journal", "project-resume"} else 2,
+                indent=None
+                if args.command in {"context", "journal", "project-resume", "agent-log"}
+                else 2,
             )
         )
         if args.command == "import-memory" and result["status"] == "blocked":
+            raise SystemExit(1)
+        if args.command == "agent-log" and result.get("status") in {"blocked", "failed"}:
             raise SystemExit(1)
         if args.command == "note" and (
             result["decision"] == "deny"

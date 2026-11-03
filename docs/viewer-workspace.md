@@ -32,9 +32,9 @@ en su propia rama; este visor usa las APIs y datos del despliegue seleccionado.
   el navegador, sin persistencia nueva de la aplicación. Recargar inicia la vista nombrada sin filtros.
   `#diario` conserva su destino. El tema sigue siendo la única preferencia en app localStorage.
 
-Favoritos y Agent log muestran explícitamente que están pendientes. Este incremento no guarda
-favoritos, no registra herramientas y no migra ningún almacén. El diario conserva su flujo actual;
-ahora abre en Hoy y permite navegar por días y meses de cualquier antigüedad conservada.
+Favoritos sigue pendiente. Agent log ya guarda y consulta acciones informadas con activación
+explícita por perfil; no observa herramientas automáticamente. El diario
+abre en Hoy y permite navegar por días y meses de cualquier antigüedad conservada.
 El lector mejorado continúa en la tarea #34.
 
 ## Decisiones visuales
@@ -106,6 +106,7 @@ python scripts/check-workspace-workflow.py --task-pages
 python scripts/check-annotation-workflow.py
 python scripts/check-journal-workflow.py
 python scripts/check-journal-workflow.py --scope work
+python scripts/check-agent-log-workflow.py
 ```
 
 El primer recorrido comprueba perfiles personal/trabajo independientes, día del servidor,

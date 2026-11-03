@@ -239,6 +239,8 @@ la CLI mientras reconectas.
 | Leer una nota completa | `read_memory` | `brain read tutorial-git-version` |
 | Evaluar qué guardar | `classify_memory` | `brain classify --request-file 'solicitud.json'` |
 | Guardar nota/diario | `capture_memory` | `brain capture --event-file 'evento.json'` |
+| Consultar acciones informadas | `read_agent_log` | `brain agent-log list --project tutorial` |
+| Registrar una acción revisada | `record_agent_action` | `brain agent-log record --event-file 'accion.json'` |
 | Consultar pendientes | `list_pending_captures` | `brain pending` |
 | Enumerar contenido | `list_content` | `brain catalog --kind note` |
 | Retomar avances | `read_journal` | `brain journal --project ejemplo` |
@@ -420,6 +422,14 @@ fichas. Los backups con estos datos requieren una versión que los entienda. El 
 rechaza activar una versión anterior sin soporte de fichas cuando encuentra su almacén.
 [Detalles y límites](task-pages.md).
 
+## Agent log: las acciones del agente
+
+Abre **Agent log** para consultar comandos, comprobaciones y enlaces informados por los agentes,
+con filtros de día, proyecto, sesión, tipo y resultado. Activa el registro explícitamente en el
+perfil que quieras usar. El diario conserva los resultados del día y enlaza sus acciones con
+**Ver acciones asociadas**. Un timeout se muestra como resultado desconocido; encontrar un enlace
+y visitar una página son acciones distintas. [Cómo activarlo, registrarlo y recuperarlo](agent-log.md).
+
 ## Biblioteca visual y anotaciones
 
 ```powershell
@@ -432,7 +442,8 @@ sintéticos, desde el checkout: `.\.venv\Scripts\python.exe scripts/demo-viewer.
 
 Al abrirlo verás **Inicio**, con textos marcados, páginas recientes y avances de Hoy. La fecha
 viene del servidor de la memoria. El menú lateral permite pasar a Biblioteca, Fragmentos y Diario;
-el tema también está ahí. Favoritos y Agent log muestran lo que falta hasta que estén disponibles.
+el tema también está ahí. **Agent log** permite consultar acciones informadas y activar su registro
+en este perfil. Favoritos sigue pendiente.
 
 1. En **Biblioteca**, abre **Colecciones de la biblioteca** para elegir documentación o conocimiento.
    Usa el buscador visible arriba, o `Ctrl+K`. **Buscar en** cambia entre documentos y fragmentos;

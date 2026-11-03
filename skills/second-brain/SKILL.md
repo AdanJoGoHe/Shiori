@@ -177,3 +177,18 @@ Markdown stays read-only; highlights and categories write a separate annotation 
 prints a private per-session URL. It does not change capture behavior or install an automatic service.
 Use `python scripts/demo-viewer.py` from the source repo for screenshots/reviews with synthetic data;
 keep screenshots of real personal knowledge outside GitHub. Stop a foreground viewer with Ctrl+C.
+
+When `memory_status.agent_log` is available and enabled, record significant reviewed actions at
+checkpoints with `record_agent_action`, using its advertised schema and this personal scope.
+Keep one stable session ID, unique event IDs and the exact submitted JSON for retries. Record
+actual command/check/change results; distinguish proposed/attempted/executed commands and found
+links/visited pages. Use unknown outcome for uncertain effects and null occurrence time when
+unknown. Coverage is reported, not independently observed. Save curated text, with secrets removed
+before sending; keep raw output, environment dumps and conversations out of the log. Link the
+committed journal event through a journal-event reference instead of duplicating the daily summary.
+Use `read_agent_log` for action history and `read_journal` for outcomes. The configured CLI fallback
+uses `agent-log status`, `agent-log list`, `agent-log read <event-id>`, or
+`agent-log record --event-file ...` (or `-` for stdin); retain the payload after
+timeouts and check its exact ID before retrying. A logging failure never repeats the underlying
+action or blocks the task. If disabled/unavailable, skip recording; activation belongs to an
+explicit user action in the configured profile. This skill installs no automatic collector.

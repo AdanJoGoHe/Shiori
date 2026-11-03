@@ -188,6 +188,18 @@ def install_version(root, bundle):
 
 
 def probe(root, version):
+    if scoped_path(root, "data/state/agent-log.json").exists():
+        command(
+            [
+                python_in(root, version),
+                "-I",
+                "-c",
+                "import sys; from second_brain.core import Brain, load_config; "
+                "from second_brain.agent_log import AgentLog; "
+                "AgentLog(Brain(load_config(sys.argv[1]))).export()",
+                root / "data/config.json",
+            ]
+        )
     if scoped_path(root, "data/state/task-pages.json").exists():
         command(
             [

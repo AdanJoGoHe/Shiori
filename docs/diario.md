@@ -104,7 +104,9 @@ y consultar sus cambios. Escribe un slug de proyecto nuevo o elige uno de las su
 En una captura antigua, despliega **Pendientes registrados en esta captura** para comparar
 su estado/versión de entonces con el estado actual registrado. **Ver último cambio** lleva al
 día de ese cambio. Una corrección de texto conserva los estados originales del seguimiento.
-El vínculo con acciones de Agent log se incorporará cuando exista su almacenamiento.
+**Ver acciones asociadas** abre Agent log filtrado por el ID de la captura y su día/proyecto.
+Las acciones deben incluir una referencia `journal-event` a ese ID; no se reconstruyen desde
+el texto del diario. [Activación y uso de Agent log](agent-log.md).
 
 Un pendiente tiene un ID estable dentro de su proyecto y una versión. Ejemplo sintético para
 añadir al candidato anterior:

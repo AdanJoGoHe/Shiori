@@ -85,7 +85,7 @@ requiere resolver la diferencia manualmente.
 ## Primera comprobación en el IDE
 
 Abre una conversación nueva y pide consultar `memory_status`: debe devolver `scope: work`.
-Comprueba que aparecen las diez herramientas. Con un ejemplo ficticio, consulta contexto,
+Comprueba que aparecen las doce herramientas. Con un ejemplo ficticio, consulta contexto,
 clasifica una captura y guarda un comando con `scope: work` y `source_agent: augment-jetbrains`.
 Léelo por su ID, reinicia la conexión y confirma que sigue disponible. Una captura `personal`
 debe fallar. Estas comprobaciones requieren tu IDE; las pruebas de protocolo locales no las sustituyen.
@@ -103,9 +103,9 @@ personal ni material real del equipo para probar el rechazo de ámbito.
    (`shiori.cmd status`). Conserva allí los errores detallados y rutas; al repositorio lleva
    solo versiones y resultados genéricos.
 2. Conecta `shiori_work`, abre una conversación nueva y comprueba que descubre `shiori-work`.
-   Pide `memory_status`: debe decir `scope: work`. Confirma estas diez herramientas:
+   Pide `memory_status`: debe decir `scope: work`. Confirma estas doce herramientas:
    `search_memory`, `get_context`, `read_memory`, `classify_memory`, `capture_memory`,
-   `list_content`, `list_pending_captures`, `memory_status`, `read_journal` y `resume_project`.
+   `list_content`, `list_pending_captures`, `memory_status`, `read_journal`, `resume_project`, `read_agent_log` y `record_agent_action`.
 3. Consulta contexto del proyecto ficticio `aceptacion-demo`. Prepara una nota de comando
    con ID `comando-demo`, un evento nuevo y `source_agent: augment-jetbrains`, cuyo cuerpo sea
    «Ejemplo ficticio: git --version muestra la versión de Git». Usa `status: unverified`:

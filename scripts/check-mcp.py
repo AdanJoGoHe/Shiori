@@ -79,6 +79,8 @@ async def main():
             "list_content",
             "read_journal",
             "resume_project",
+            "read_agent_log",
+            "record_agent_action",
         }
         status = await client.call_tool("memory_status", {})
         print("Core status:", str(status)[:1000])

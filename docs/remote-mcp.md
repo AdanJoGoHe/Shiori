@@ -103,9 +103,10 @@ No sobrescribas la entrada gestionada actual para ensayar la fase remota.
 
 ## Permisos, revocación y límites
 
-- Consulta anuncia nueve herramientas: contexto, búsqueda, lectura, diario, retomar proyecto, clasificación, catálogo,
-  pendientes y estado. Captura se anuncia solo a escritores. Llamarla directamente con credencial
-  de lectura también se rechaza. Una herramienta futura queda denegada hasta revisión explícita.
+- Consulta anuncia diez herramientas, incluida `read_agent_log`. `capture_memory` y
+  `record_agent_action` se anuncian solo a escritores; llamarlas con credencial de lectura
+  también se rechaza. Agent log requiere además activación local explícita del perfil.
+  Una herramienta futura queda denegada hasta revisión explícita.
 - Los permisos no aíslan documentos por equipo: cada lector ve la memoria personal autorizada
   del mismo despliegue. No hay múltiples usuarios/tenants ni memoria corporativa habilitada.
 - El registro se vuelve a leer en cada petición. Eliminar una entrada, cambiar su hash/permiso o

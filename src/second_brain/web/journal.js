@@ -4,6 +4,7 @@ window.JournalUI = (() => {
   const id = name => document.getElementById(name);
   let scope, sequence = 0, entries = [], tasks = [], next = null, taskNext = null;
   let taskTotal = 0, activeTotal = 0, today, timezone;
+  let restoreCounts;
   const statusNames = {open: "Abierto", blocked: "Bloqueado", done: "Resuelto", discarded: "Descartado"};
   const sectionNames = {completed: "Resultados", checks: "Comprobaciones", decisions: "Decisiones", blockers: "Bloqueos", next_steps: "Próximos pasos"};
   const date = value => new Date(value).toLocaleString("es-ES", {dateStyle: "medium", timeStyle: "short", timeZone: timezone});
@@ -54,6 +55,7 @@ window.JournalUI = (() => {
     const params = new URLSearchParams(extra);
     if (id("journal-project").value) params.set("project", id("journal-project").value);
     if (dates) {
+      if (id("search").value) params.set("query", id("search").value);
       if (id("journal-from").value) params.set("start_date", id("journal-from").value);
       if (id("journal-to").value) params.set("end_date", id("journal-to").value);
     }
@@ -170,6 +172,7 @@ window.JournalUI = (() => {
     if (row.task_changes?.length) article.append(taskChanges(row));
     if (row.entry_truncated) article.append(node("p", "Vista abreviada. Abre el día completo para ver todo el texto.", "journal-meta"));
     const links = node("div", undefined, "journal-entry-links");
+    if (row.match_context) article.append(node("blockquote", row.match_context, "journal-match-context"));
     links.append(sourceButton(row));
     links.append(action("Ver acciones asociadas", () => AgentLogUI.openJournal(row.event_id, row.day, row.project)));
     if (row.note_id) links.append(action("Abrir nota vinculada", () => openReference("note:" + scope + ":" + row.note_id, "note")));
@@ -265,6 +268,7 @@ window.JournalUI = (() => {
     id("journal-tasks-more").hidden = taskNext === null;
   }
   async function load(more = false, moreTasks = false) {
+    const restoreTarget = !more && !moreTasks ? restoreCounts : null; restoreCounts = null;
     const current = ++sequence;
     document.querySelector(".journal-grid").inert = true;
     id("journal-resume").disabled = true;
@@ -299,12 +303,23 @@ window.JournalUI = (() => {
       id("journal-from").value = feed.start_date; id("journal-to").value = feed.end_date;
       id("journal-range-from").value = feed.start_date; id("journal-range-to").value = feed.end_date;
       periodHeading(feed);
+      scopeFilters();
       renderEntries(feed.total, feed.error_count); renderTasks(board.task_total, board.active_total);
       document.querySelector(".journal-grid").inert = false;
       message(
         (feed.error_count || board.error_count ? "Lectura incompleta: las correcciones o los estados actuales pueden estar incompletos. Revisa el diario antes de actualizar pendientes." : "") +
         (board.truncated || feed.truncated ? " Se alcanzó un límite de lectura; carga más cuando esté disponible." : ""));
       remember();
+      if (restoreTarget) {
+        for (const taskPage of [false,true]) {
+          while (document.body.classList.contains("journal-active") && (taskPage ? taskNext : next) !== null &&
+                 (taskPage ? tasks.length : entries.length) < (taskPage ? restoreTarget.tasks : restoreTarget.entries)) {
+            const before = sequence, count = taskPage ? tasks.length : entries.length;
+            await load(!taskPage,taskPage);
+            if (sequence !== before+1 || (taskPage ? tasks.length : entries.length) <= count) return;
+          }
+        }
+      }
     } catch (error) { if (current === sequence) message("No se pudo leer el diario. " + error.message + " Pulsa Actualizar para reintentar."); }
     finally { if (current === sequence) id("journal-entries").setAttribute("aria-busy", "false"); }
   }
@@ -370,5 +385,6 @@ window.JournalUI = (() => {
       }
     };
   });
-  return {show, hide, load};
+  return {show, hide, load, cancel:() => { sequence++; }, snapshot:() => ({entries:entries.length,tasks:tasks.length}),
+    restore:saved => { restoreCounts = saved && [saved.entries,saved.tasks].every(n=>Number.isInteger(n)&&n>=0&&n<=5000) ? saved : null; }};
 })();

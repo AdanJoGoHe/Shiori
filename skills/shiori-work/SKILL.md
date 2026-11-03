@@ -116,6 +116,11 @@ personal fallback. Skip transcripts, raw logs and trivial outcomes. Archive deli
 obsolete/superseded workflows; missing usage records do not establish obsolescence.
 Use the current session for this pass; do not start another model process or bypass permissions.
 
+For journal text lookup, use `read_journal(query=...)` when supported by its tool documentation,
+with the requested project/date window. Terms filter entries before pagination; current tasks stay
+separate. Fallback: this work installation's `shiori.cmd run journal --query "example"`; if absent,
+report that an update is needed. Preserve this work deployment and inspect incomplete-result flags.
+
 When the user asks to search favorites, use this work deployment's `read_favorites` with bounded
 pages and exact project/tags/kind/target filters. Follow `next_offset`; inspect errors and
 `catalog_truncated`. Read more through the authorized `content_id`. A favorite expresses

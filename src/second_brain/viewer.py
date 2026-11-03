@@ -6,7 +6,6 @@ import re
 import secrets
 import socket
 import threading
-import unicodedata
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
@@ -16,7 +15,13 @@ from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
 from second_brain.annotations import COLORS, Annotations, Conflict, resolve_anchor, text_contract
-from second_brain.catalog import Catalog, catalog_diagnostics, markdown_body
+from second_brain.catalog import (
+    Catalog,
+    catalog_diagnostics,
+    markdown_body,
+    normalized,
+    search_excerpt,
+)
 from second_brain.core import SLUG, safe_text
 from second_brain.workflow import JournalConflict
 from second_brain.task_pages import TaskPages, task_key
@@ -24,23 +29,27 @@ from second_brain.agent_log import AgentLog
 from second_brain.favorites import Favorites
 
 
-def normalized(text):
-    return "".join(
-        c for c in unicodedata.normalize("NFKD", text.casefold()) if not unicodedata.combining(c)
-    )
-
-
-def preview_text(content, title):
+def readable_text(content, title):
     body = markdown_body(content).lstrip()
     if body.startswith(f"# {title}\n"):
         body = body.split("\n", 1)[1]
-    tokens = MarkdownIt("commonmark", {"html": False}).parse(body)
-    return " ".join(
-        child.content
+    tokens = MarkdownIt("commonmark", {"html": False}).enable("table").disable("image").parse(body)
+    return "\n".join(
+        token.content
+        if token.type in {"fence", "code_block"}
+        else "".join(
+            "\n" if child.type in {"softbreak", "hardbreak"} else child.content
+            for child in token.children or []
+            if child.type in ("text", "code_inline", "softbreak", "hardbreak")
+        )
         for token in tokens
-        for child in token.children or []
-        if child.type in ("text", "code_inline")
-    ).strip()[:220]
+        if token.type in {"inline", "fence", "code_block"}
+    ).strip()
+
+
+def preview_text(content, title, query=""):
+    text = readable_text(content, title)
+    return search_excerpt(text, query)
 
 
 def render(content, row, rows):
@@ -307,11 +316,12 @@ class Viewer:
                         )
                     continue
                 body = markdown_body(content)
-                searchable = normalized(row["title"] + "\n" + body)
+                plain = readable_text(content, row["title"])
+                searchable = normalized(row["title"] + "\n" + plain + "\n" + body)
                 if not all(term in searchable for term in terms):
                     continue
                 score = sum(3 if term in normalized(row["title"]) else 1 for term in terms)
-                preview = preview_text(content, row["title"])
+                preview = search_excerpt(plain, query)
                 matches.append({**row, "preview": preview, "score": score})
             except (OSError, ValueError):
                 failed_ids.add(row["id"])
@@ -520,6 +530,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     "journal.js",
                     "agent-log.js",
                     "favorites.js",
+                    "reader.js",
                     "style.css",
                     "theme.js",
                     "highlights.js",
@@ -533,6 +544,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     "journal.js": "text/javascript",
                     "agent-log.js": "text/javascript",
                     "favorites.js": "text/javascript",
+                    "reader.js": "text/javascript",
                     "theme.js": "text/javascript",
                     "highlights.js": "text/javascript",
                     "style.css": "text/css",
@@ -639,9 +651,9 @@ class ViewerHandler(BaseHTTPRequestHandler):
             elif route in {"api/journal", "api/journal-state", "api/project-resume"}:
                 from second_brain.workflow import timeline, overview, resume_project
 
-                args = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=5)
+                args = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=6)
                 allowed = (
-                    {"project", "offset", "start_date", "end_date"}
+                    {"project", "offset", "start_date", "end_date", "query"}
                     if route == "api/journal"
                     else {"project", "offset"}
                     if route == "api/journal-state"

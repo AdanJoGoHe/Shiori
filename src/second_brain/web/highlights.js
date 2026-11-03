@@ -336,5 +336,6 @@ class ReaderMarks {
     }
     if (!this.items.length) list.append(element("p", "Este documento aún no tiene marcas."));
     $("mark-count").textContent = this.items.length + " marcas";
+    window.ReaderUI?.refresh();
   }
 }

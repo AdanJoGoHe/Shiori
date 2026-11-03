@@ -456,7 +456,8 @@ en este perfil. **Favoritos** reúne tus páginas y enlaces guardados, también 
 
 1. En **Biblioteca**, abre **Colecciones de la biblioteca** para elegir documentación o conocimiento.
    Usa el buscador visible arriba, o `Ctrl+K`. **Buscar en** cambia entre documentos y fragmentos;
-   desde Inicio o Diario, escribir en ese buscador abre la biblioteca correspondiente.
+   desde Inicio abre Biblioteca. El selector también permite buscar Favoritos, avances del Diario
+   o acciones de Agent log sin mezclar sus datos. [Búsqueda y lector](busqueda-lector.md).
 2. Combina etiquetas de documentos, proyecto, estado y fechas disponibles. Puedes quitar cada
    filtro activo por separado. Atrás/Adelante y **Volver a resultados** conservan la consulta y la página.
 3. Abre un documento y usa el índice de encabezados.

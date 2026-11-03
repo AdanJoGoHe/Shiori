@@ -29,8 +29,9 @@ The server supplies scope and calendar day through capability-protected `api/vie
 it accepts no parameters and returns no configuration paths. Refresh fetches the day again.
 The sidebar includes Biblioteca, Fragmentos, Tareas, Diario, [Favoritos](favoritos.md) and
 [Agent log](agent-log.md). Favorites persist per deployment; Agent log requires explicit activation.
-The library search remains visible, including when browsing the diary; typing there searches
-documents/fragments, not diary summaries. Diary project/date controls keep their own semantics.
+The visible search selector chooses Biblioteca, Fragmentos, Favoritos, Diario or Agent log.
+Diary text search filters the selected period, while current tracked tasks remain independent.
+See [search and reader](busqueda-lector.md) for temporary matches, exact copy and focused reading.
 
 Collections distinguish documentation, canonical knowledge and dated journal progress.
 Journal opens a dedicated [activity timeline and tracked-task view](diario.md), with project/date

@@ -14,8 +14,9 @@ en su propia rama; este visor usa las APIs y datos del despliegue seleccionado.
 - El ámbito y el día vienen del servidor local. Inicio vuelve a pedir la fecha en cada carga,
   sin usar el reloj o la zona horaria del navegador para decidir qué es Hoy.
 - Biblioteca mantiene las colecciones, filtros exactos, paginación, lector y anotaciones.
-  El buscador superior consulta documentos o fragmentos; desde Diario abre esa búsqueda
-  en Biblioteca/Fragmentos. No busca dentro de los avances del diario.
+  El selector superior consulta Biblioteca, Fragmentos, Favoritos, Diario o Agent log, con
+  filtros y contratos propios. Diario busca avances del periodo sin ocultar pendientes actuales.
+  [Búsqueda, coincidencias y lector centrado](busqueda-lector.md).
 - Fragmentos da acceso directo a las categorías estables Comando, Dirección IP, Ruta e
   Información importante. Sus nombres se leen de las categorías existentes; las archivadas
   desaparecen de los accesos rápidos, conservando el filtro completo y las marcas anteriores.

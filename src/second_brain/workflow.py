@@ -281,10 +281,13 @@ def resume_project(brain, project, max_chars=8000):
     return result
 
 
-def timeline(brain, start_date=None, end_date=None, project=None, offset=0):
+def timeline(brain, start_date=None, end_date=None, project=None, offset=0, query=""):
     """A bounded visual page; task state and links are folded from the full retained history."""
     from datetime import date, timedelta
     from second_brain.journal import load_entries
+    from second_brain.catalog import normalized, search_excerpt
+
+    terms = normalized(safe_text(query, 300)).split()
 
     def parse(value):
         if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
@@ -305,7 +308,12 @@ def timeline(brain, start_date=None, end_date=None, project=None, offset=0):
         selected, errors = load_entries(
             brain, [start + timedelta(days=delta) for delta in range((end - start).days + 1)]
         )
-    entries = [row for row in selected if project is None or row["project"] == project]
+    entries = [
+        row
+        for row in selected
+        if (project is None or row["project"] == project)
+        and all(term in normalized(row["content"]) for term in terms)
+    ]
     entries.sort(key=lambda row: row["_sequence"], reverse=True)
     result = {
         "scope": brain.scope,
@@ -339,6 +347,8 @@ def timeline(brain, start_date=None, end_date=None, project=None, offset=0):
             )
         }
         item["day"] = datetime.fromisoformat(row["at"]).date().isoformat()
+        if terms:
+            item["match_context"] = search_excerpt(row["content"], query, 300)
         item["task_changes"] = []
         for change in row["tasks"]:
             current = state["tasks"].get((row["project"], change["id"]))

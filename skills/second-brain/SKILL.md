@@ -178,6 +178,11 @@ prints a private per-session URL. It does not change capture behavior or install
 Use `python scripts/demo-viewer.py` from the source repo for screenshots/reviews with synthetic data;
 keep screenshots of real personal knowledge outside GitHub. Stop a foreground viewer with Ctrl+C.
 
+For a journal text lookup, use `read_journal(query=...)` when its tool documentation supports it,
+with the requested project/date window. All terms filter entries before pagination; current tasks
+remain a separate query. Fallback: this configured CLI `journal --query "example"`; report an update
+needed if unsupported there too. Keep the same deployment and inspect incomplete-result flags.
+
 When the user asks to search favorites, use `read_favorites` in this deployment, with bounded
 pages and exact project/tags/kind/target filters as needed. Follow `next_offset`; inspect errors
 and `catalog_truncated`. Use the returned authorized `content_id` to read more local context.

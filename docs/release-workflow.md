@@ -64,6 +64,23 @@ release verifiers and the diary browser workflow. `scripts/verify-release-upgrad
 real older bundle against the candidate, including notes, marks, skill refresh and rollback,
 using disposable memory only. It does not publish or update an existing deployment.
 
+The current upgrade check first exercises a compatible rollback, then creates task pages,
+favorites (including a removed record), Agent log corrections and tracked-task history.
+It restores the combined recovery bundle into a new paused profile and verifies that a
+now-incompatible older runtime is refused without changing active data or launchers.
+`scripts/recovery_check.py` repeats the defined recovery set for personal/work fixtures,
+including corrupt-hash and wrong-scope refusal. Learned skills and external documentation
+remain outside that recovery set; keep their independent copies.
+
+Run `scripts/check-scale.py` for small/large disposable HTTP scenarios (up to 1000 pages,
+500 marks and 10000 reported actions). It reports normal request time, response size and
+Python heap peak from a separate traced request; it does not measure process RSS or
+guarantee latency on other machines. Reports and screenshots stay outside source Git.
+
+Preparing a release may end with a verified GitHub draft. Publication is a separate explicit
+owner instruction. When an older draft must be preserved, use a new version and mark the
+old draft obsolete without deleting or replacing its assets.
+
 Merge the reviewed release commit, create a draft targeting that exact commit and upload only
 the five allowlisted assets. Compare uploaded sizes/digests with the tested files before publishing
 as a prerelease. Keep older drafts/assets intact. Verify the public tag and anonymous downloads

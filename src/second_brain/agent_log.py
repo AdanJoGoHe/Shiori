@@ -409,6 +409,18 @@ class AgentLog:
             item["reference_preview"] = (
                 row["references"][0]["target"][:300] if row["references"] else ""
             )
+            if terms:
+                from second_brain.catalog import search_excerpt
+
+                text = " ".join(
+                    [
+                        row["summary"],
+                        row["command"] or "",
+                        row["context"],
+                        *[r["target"] + " " + r["label"] for r in row["references"]],
+                    ]
+                )
+                item["match_context"] = search_excerpt(text, query, 220)
             result["items"].append(item)
             result["next_offset"] = index + 1 if index + 1 < len(selected) else None
             if len(json.dumps(result, ensure_ascii=False)) > max_chars:

@@ -79,14 +79,17 @@ const screens = {
   "agent-log": ["Agent log", "Las acciones del agente, con su resultado."]
 };
 let deployment, restoring = false, routeSequence = 0, fragmentCategories = [];
+const scopeForScreen = screen => ({fragmentos:"fragments", favoritos:"favorites", diario:"journal", "agent-log":"agent-log"})[screen] || "documents";
 function snapshot() {
   return {viewer: true, screen: state.screen, kind: state.kind, tags: [...state.tags], categories: [...state.categories],
     offset: state.offset, selected: state.selected, markId: state.markId || null,
     query: $("search").value, view: $("view").value, color: $("fragment-color").value,
     filters: Object.fromEntries(filterKeys.map(key => [key, $(key).value])),
     journal: Object.fromEntries(["journal-project", "journal-period", "journal-from", "journal-to", "journal-task-filter"].map(key => [key, $(key).value])),
+    journalPages: JournalUI.snapshot(),
     log: AgentLogUI.snapshot(),
     favorites: FavoritesUI.snapshot(),
+    reader: ReaderUI.snapshot(),
     focusId: document.activeElement.closest?.(".result")?.dataset.id, focusMark: document.activeElement.closest?.(".fragment-result")?.dataset.markId,
     y: window.scrollY, resultsScroll: $("results").scrollTop};
 }
@@ -94,6 +97,7 @@ function remember() { if (!restoring) history.replaceState(snapshot(), ""); }
 function resetReader() {
   readerNumber++;
   readerMarks?.reset();
+  ReaderUI.reset();
   state.selected = null; state.markId = null;
   document.body.classList.remove("reading");
   $("reader-empty").hidden = false; $("reader-content").hidden = true;
@@ -111,8 +115,8 @@ function showScreen() {
   $("tasks-panel").hidden = screen !== "tareas";
   $("favorites-panel").hidden = screen !== "favoritos";
   $("agent-log-panel").hidden = screen !== "agent-log";
-  document.querySelector(".search-options").hidden = ["agent-log", "favoritos"].includes(screen);
-  document.querySelector(".search-label").textContent = screen === "agent-log" ? "Buscar en Agent log" : screen === "favoritos" ? "Buscar solo en tus favoritos" : "Buscar en tu biblioteca";
+  document.querySelector(".search-options").hidden = false;
+  document.querySelector(".search-label").textContent = screen === "agent-log" ? "Buscar en Agent log" : screen === "favoritos" ? "Buscar solo en tus favoritos" : screen === "diario" ? "Buscar avances del periodo" : "Buscar en tu biblioteca";
   $("search").placeholder = screen === "agent-log" ? "Un comando, una acción, un enlace registrado…" : "Un comando, una página, algo que aprendiste…";
   document.querySelector(".toolbar").hidden = !library;
   $("category-manager").hidden = !library;
@@ -122,6 +126,9 @@ function showScreen() {
   $("fragment-color-wrap").hidden = !fragments;
   $("fragment-shortcuts").hidden = !fragments;
   $("search-context").textContent = fragments ? "Texto marcado y categorías" : state.kind === "task" ? "Fichas de tareas" : "Documentación y conocimiento";
+  if (screen === "favoritos") $("search-context").textContent = "Solo favoritos · etiquetas exactas · todas las palabras";
+  if (screen === "agent-log") $("search-context").textContent = "Acciones informadas · periodo seleccionado · todas las palabras";
+  if (screen === "diario") $("search-context").textContent = "Avances del periodo · todas las palabras · pendientes actuales sin filtrar";
   for (const button of document.querySelectorAll(".destination")) {
     button.classList.toggle("active", button.dataset.screen === screen);
     if (button.dataset.screen === screen) button.setAttribute("aria-current", "page");
@@ -129,17 +136,18 @@ function showScreen() {
   }
   for (const button of document.querySelectorAll(".collection")) button.setAttribute("aria-pressed", String(button.dataset.kind === state.kind && library));
 }
-async function navigate(screen, kind = "", record = true) {
+async function navigate(screen, kind = "", record = true, keepQuery = false) {
   const route = ++routeSequence;
   restoring = false;
   clearTimeout(timer);
   if (record) remember();
+  if (!keepQuery) $("search").value = "";
   resetReader();
   state.screen = screen; state.kind = screen === "diario" ? "journal" : screen === "tareas" ? "task" : kind;
   state.offset = 0; state.tags = []; state.categories = [];
   $("fragment-color").value = "";
   for (const key of filterKeys) $(key).value = key === "sort" ? "relevance" : "";
-  $("view").value = screen === "fragmentos" ? "fragments" : "documents";
+  $("view").value = scopeForScreen(screen);
   if (record) history.pushState(snapshot(), "", "#" + screen);
   await load();
   if (route !== routeSequence) return;
@@ -195,6 +203,29 @@ function activeFilters() {
   if ($("view").value === "fragments") {
     for (const category of state.categories) chip("Categoría: " + (fragmentCategories.find(row => row.id === category)?.label || (category === "__none__" ? "Sin categoría" : category)), () => { state.categories = state.categories.filter(value => value !== category); });
     if ($("fragment-color").value) chip(colorNames[$("fragment-color").value], () => { $("fragment-color").value = ""; });
+  }
+}
+function scopeFilters() {
+  const target = $("scope-filters"); target.replaceChildren();
+  if (!["favoritos", "diario", "agent-log"].includes(state.screen)) return;
+  const refresh = () => state.screen === "favoritos" ? FavoritesUI.load(true) : state.screen === "agent-log" ? AgentLogUI.load(true) : JournalUI.load();
+  const chip = (text, remove) => {
+    const button = element("button", text + " ×", "tag"); button.type = "button";
+    button.setAttribute("aria-label", "Quitar filtro: " + text);
+    button.onclick = () => { clearTimeout(timer); remove(); refresh(); }; target.append(button);
+  };
+  if ($("search").value) chip("Texto: " + $("search").value, () => { $("search").value = ""; });
+  if (state.screen === "favoritos") {
+    for (const [key,label] of [["project","Proyecto"],["kind","Destino"]]) if ($("favorite-"+key).value)
+      chip(label + ": " + ($("favorite-"+key).selectedOptions?.[0]?.textContent || $("favorite-"+key).value), () => { $("favorite-"+key).value = ""; });
+    for (const tag of $("favorite-tags").value.split(",").map(t=>t.trim()).filter(Boolean)) chip("Etiqueta: "+tag, () => { $("favorite-tags").value = $("favorite-tags").value.split(",").filter(t=>t.trim()!==tag).join(","); });
+  } else {
+    const log = state.screen === "agent-log", prefix = log ? "log-" : "journal-";
+    if ($(prefix+"from").value) chip("Periodo: "+$(prefix+"from").value+" — "+$(prefix+"to").value, () => { $(prefix+(log?"mode":"period")).value="today"; });
+    for (const key of log ? ["project","session","agent","kind","outcome","journal-event"] : ["project"]) {
+      const input = $(prefix+key);
+      if (input.value) chip((input.closest("label")?.firstChild.textContent || "Avance") + ": " + (input.selectedOptions?.[0]?.textContent || input.value), () => { input.value=""; });
+    }
   }
 }
 async function viewerInfo(refresh = false) {
@@ -467,6 +498,7 @@ async function load() {
   AgentLogUI.hide();
   FavoritesUI.hide();
   showScreen();
+  scopeFilters();
   remember();
   if (state.screen === "inicio") { warning(""); return loadHome(number); }
   if (state.screen === "agent-log") { warning(""); return AgentLogUI.load(); }
@@ -536,13 +568,14 @@ async function load() {
     if (number === requestNumber) $("results").setAttribute("aria-busy", "false");
   }
 }
-async function openItem(id, markId = null, record = true) {
+async function openItem(id, markId = null, record = true, savedReader = null) {
   if (record) { routeSequence++; restoring = false; remember(); }
   state.selected = id; state.markId = markId;
   if (record) history.pushState(snapshot(), "");
   document.querySelector(".workspace").hidden = false;
   const number = ++readerNumber;
   readerMarks.reset();
+  ReaderUI.loading();
   state.selected = id;
   document.body.classList.add("reading");
   $("reader-empty").hidden = true;
@@ -570,7 +603,7 @@ async function openItem(id, markId = null, record = true) {
       button.onclick = () => {
         state.tags = [tag];
         state.offset = 0;
-        document.body.classList.remove("reading");
+        resetReader();
         load();
       };
       meta.append(button);
@@ -583,6 +616,7 @@ async function openItem(id, markId = null, record = true) {
     for (const heading of data.headings) {
       const link = element("a", heading.title);
       link.href = "#" + heading.id;
+      link.onclick = event => { event.preventDefault(); const node = $(heading.id); node.tabIndex = -1; node.focus(); node.scrollIntoView({block:"center"}); remember(); };
       toc.append(link);
     }
     $("toc-wrap").hidden = !data.headings.length;
@@ -596,6 +630,7 @@ async function openItem(id, markId = null, record = true) {
     $("related-wrap").hidden = !data.related.length;
     await readerMarks.open(data);
     if (number !== readerNumber) return;
+    ReaderUI.open(data, savedReader);
     for (const button of document.querySelectorAll(".result")) {
       button.classList.toggle("active", button.dataset.id === id);
       button.setAttribute("aria-pressed", String(button.dataset.id === id));
@@ -603,17 +638,20 @@ async function openItem(id, markId = null, record = true) {
     await taskContext(item, number);
     if (number !== readerNumber) return;
     if (markId) readerMarks.focusMark(markId);
-    else $("reader-title").focus();
+    else { $("reader-title").focus(); if (!savedReader) ReaderUI.locate(); }
+    remember();
   } catch (error) {
     if (number !== readerNumber) return;
     $("reader-title").textContent = "Documento no disponible";
     $("reader-body").replaceChildren(element("p", error.message));
     await readerMarks.open({item: {id}, html: "", text: "", revision: null});
+    if (number !== readerNumber) return;
+    ReaderUI.unavailable();
     if (markId) readerMarks.focusMark(markId);
   }
 }
 async function openReference(contentId, kind = "") {
-  const pending = navigate("biblioteca", kind), route = routeSequence;
+  const pending = navigate("biblioteca", kind, true, true), route = routeSequence;
   await pending;
   if (route !== routeSequence) return;
   await openItem(contentId, null, false);
@@ -628,6 +666,8 @@ $("reader-body").addEventListener("click", event => {
   } else if (link.dataset.unavailable) {
     event.preventDefault();
     warning("Ese enlace no está disponible dentro de las fuentes autorizadas.");
+  } else if (link.getAttribute("href")?.startsWith("#")) {
+    event.preventDefault(); $("reader-body").scrollIntoView({block:"start"}); remember();
   }
 });
 for (const button of document.querySelectorAll(".destination")) {
@@ -638,6 +678,7 @@ for (const heading of document.querySelectorAll("[data-identity-key]")) identify
 for (const button of document.querySelectorAll(".collections .collection")) button.onclick = () => navigate("biblioteca", button.dataset.kind);
 for (const button of document.querySelectorAll("[data-go]")) button.onclick = () => navigate(button.dataset.go);
 window.addEventListener("popstate", async () => {
+  clearTimeout(timer);
   const saved = history.state;
   if (!saved?.viewer) {
     const screen = location.hash.slice(1);
@@ -655,12 +696,13 @@ window.addEventListener("popstate", async () => {
       $(key).value = saved.filters[key];
     }
     for (const [key, value] of Object.entries(saved.journal || {})) $(key).value = value;
+    JournalUI.restore(saved.journalPages);
     AgentLogUI.restore(saved.log);
     FavoritesUI.restore(saved.favorites);
     const pending = load(), request = requestNumber;
     await pending;
     if (route !== routeSequence || request !== requestNumber) return;
-    if (saved.selected) await openItem(saved.selected, saved.markId, false);
+    if (saved.selected) await openItem(saved.selected, saved.markId, false, saved.reader);
     if (route !== routeSequence) return;
     $("results").scrollTop = saved.resultsScroll;
     window.scrollTo(0, saved.y);
@@ -676,11 +718,15 @@ document.addEventListener("keydown", event => {
 });
 $("search").oninput = () => {
   clearTimeout(timer);
+  requestNumber++; FavoritesUI.hide(); AgentLogUI.hide(); JournalUI.cancel();
+  if (state.selected) resetReader();
+  scopeFilters();
   state.offset = 0;
   timer = setTimeout(() => {
     if (state.screen === "agent-log") AgentLogUI.load(true);
     else if (state.screen === "favoritos") FavoritesUI.load(true);
-    else if (!["biblioteca", "fragmentos", "tareas"].includes(state.screen)) navigate($("view").value === "fragments" ? "fragmentos" : "biblioteca");
+    else if (state.screen === "diario") JournalUI.load();
+    else if (!["biblioteca", "fragmentos", "tareas"].includes(state.screen)) navigate($("view").value === "fragments" ? "fragmentos" : "biblioteca", "", true, true);
     else load();
   }, 250);
 };
@@ -689,14 +735,15 @@ for (const key of filterKeys) $(key).onchange = () => {
   load();
 };
 $("view").onchange = () => {
-  const target = $("view").value === "fragments" ? "fragmentos" : state.kind === "task" ? "tareas" : "biblioteca";
-  $("view").value = state.screen === "fragmentos" ? "fragments" : "documents";
-  navigate(target, state.kind === "journal" ? "" : state.kind);
+  const target = ({documents:"biblioteca",fragments:"fragmentos",favorites:"favoritos",journal:"diario","agent-log":"agent-log"})[$("view").value];
+  $("view").value = scopeForScreen(state.screen);
+  navigate(target, "", true, true);
 };
 $("fragment-color").onchange = () => { state.offset = 0; load(); };
 $("clear").onclick = () => {
   if (state.screen === "agent-log") { $("log-clear").click(); return; }
   if (state.screen === "favoritos") { FavoritesUI.clear(); return; }
+  if (state.screen === "diario") { $("search").value=""; $("journal-project").value=""; $("journal-period").value="today"; clearTimeout(timer); JournalUI.load(); return; }
   state.categories = [];
   $("fragment-color").value = "";
   clearTimeout(timer);
@@ -724,8 +771,14 @@ $("next").onclick = () => {
   }
 };
 $("back").onclick = () => {
+  remember();
   history.back();
 };
+let scrollFrame;
+window.addEventListener("scroll", () => { if (state.selected && !scrollFrame) scrollFrame = requestAnimationFrame(() => { scrollFrame = null; remember(); }); }, {passive:true});
+const searchSize = () => { const area = document.querySelector(".search-area"); document.documentElement.style.setProperty("--search-height", (getComputedStyle(area).position === "sticky" ? area.offsetHeight : 0) + "px"); };
+new ResizeObserver(searchSize).observe(document.querySelector(".search-area"));
+window.addEventListener("resize", searchSize);
 let editingTask = null, openedTask = null;
 const taskPayload = item => Object.fromEntries(["key", "title", "body", "status", "project", "tags", "links", "version"].map(key => [key, item[key]]));
 function editTask(item = null) {

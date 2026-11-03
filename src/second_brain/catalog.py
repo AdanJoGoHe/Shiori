@@ -3,6 +3,7 @@
 import hashlib
 import os
 import re
+import unicodedata
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -35,6 +36,30 @@ def markdown_body(content):
         "",
         content,
         flags=re.MULTILINE,
+    )
+
+
+def normalized(text):
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", text.casefold()) if not unicodedata.combining(c)
+    )
+
+
+def search_excerpt(text, query, limit=220):
+    terms = normalized(query).split()
+    if not terms:
+        return text[:limit]
+    folded, offsets = [], []
+    for index, char in enumerate(text):
+        value = normalized(char)
+        folded.append(value)
+        offsets.extend([index] * len(value))
+    position = "".join(folded).find(terms[0])
+    start = max(0, offsets[position] - 70) if position >= 0 else 0
+    return (
+        ("…" if start else "")
+        + text[start : start + limit]
+        + ("…" if start + limit < len(text) else "")
     )
 
 

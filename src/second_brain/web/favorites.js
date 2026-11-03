@@ -115,6 +115,7 @@ window.FavoritesUI = (() => {
       $("favorite-status").textContent = data.errors.length || data.catalog_truncated ? "Algunas páginas no se pudieron comprobar. Actualiza para reintentar; no se abrirán destinos parecidos." : data.truncated ? "Página acotada. Pulsa Siguiente para continuar." : "";
       $("favorite-page").textContent = data.total ? "Página " + (pageIndex + 1) : "";
       $("favorite-prev").disabled = pageIndex === 0; $("favorite-next").disabled = next === null;
+      scopeFilters();
       remember();
     } catch {
       if (number === sequence) $("favorite-status").textContent = "No se pudieron leer los favoritos. Los resultados anteriores pueden estar desactualizados. Pulsa Actualizar para reintentar.";

@@ -146,13 +146,23 @@ def load_entries(brain, days=None):
 
 
 def read_journal(
-    brain, start_date=None, end_date=None, project=None, offset=0, max_chars=8000, view="entries"
+    brain,
+    start_date=None,
+    end_date=None,
+    project=None,
+    offset=0,
+    max_chars=8000,
+    view="entries",
+    query="",
 ):
     """Read newest entries first; offsets page entries, not characters or days."""
+    from second_brain.catalog import normalized
+
+    terms = normalized(safe_text(query, 300)).split()
     if view == "tasks":
         from second_brain.workflow import overview
 
-        if not project or start_date is not None or end_date is not None:
+        if not project or start_date is not None or end_date is not None or query:
             raise ValueError("Task state requires an exact project and no date filter")
         return overview(brain, project, offset, max_chars)
     if view != "entries":
@@ -202,7 +212,8 @@ def read_journal(
             for key in ("event_id", "at", "path", "project", "content", "content_truncated")
         }
         for item in entries
-        if project is None or item["project"] == project
+        if (project is None or item["project"] == project)
+        and all(term in normalized(item["content"]) for term in terms)
     ]
     entries.sort(
         key=lambda item: (datetime.fromisoformat(item["at"]), item["event_id"]), reverse=True

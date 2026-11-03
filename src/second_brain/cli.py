@@ -143,6 +143,9 @@ def create_parser(managed=False):
     journal.add_argument("--offset", type=int, default=0)
     journal.add_argument("--max-chars", type=int, default=8000)
     journal.add_argument("--view", choices=["entries", "tasks"], default="entries")
+    journal.add_argument(
+        "--query", default="", help="All words in captured entries, before pagination"
+    )
     project_resume = sub.add_parser(
         "project-resume", help="Resume an exact project's recorded work"
     )
@@ -457,6 +460,7 @@ def main():
                 args.offset,
                 args.max_chars,
                 args.view,
+                args.query,
             )
         elif args.command == "project-resume":
             from second_brain.workflow import resume_project

@@ -75,6 +75,7 @@ window.AgentLogUI = (() => {
       if(item.corrected_by) row.append(node("p","Registro corregido; abre el detalle para ver la corrección.","log-meta"));
       if(item.preview_truncated) row.append(node("p","Vista abreviada; abre el detalle para ver el texto completo.","log-meta"));
       const open=button("Ver acción",()=>detail(item.event_id));open.dataset.logOpen="";open.setAttribute("aria-describedby",summary.id);open.setAttribute("aria-pressed","false");row.append(open);
+      if(item.match_context) row.append(node("p",item.match_context,"log-context"));
       if(item.command_preview) row.append(button("Copiar comando",async()=>{try {const full=await api("api/agent-log?"+new URLSearchParams({event_id:item.event_id}));await copy(full.item.command);}catch{message("No se pudo recuperar el comando completo. Abre la acción para reintentar.");}}));
       groups.get(key).append(row);
     }
@@ -105,7 +106,7 @@ window.AgentLogUI = (() => {
       get("log-activation").textContent=enabled?"Registro activado en este perfil":"Registro desactivado en este perfil";
       get("log-toggle").textContent=enabled?"Desactivar registro":"Activar registro";get("log-toggle").disabled=false;
       get("log-today").setAttribute("aria-pressed",String(get("log-mode").value==="today"));get("log-yesterday").setAttribute("aria-pressed",String(get("log-mode").value==="yesterday"));
-      render(data);message(data.truncated?"Página acotada por presupuesto. Carga la siguiente para continuar.":"");
+      render(data);scopeFilters();message(data.truncated?"Página acotada por presupuesto. Carga la siguiente para continuar.":"");
       if(!get("log-selected").value && data.items.length) get("log-selected").value=data.items[0].event_id;
       if(get("log-selected").value) await detail(get("log-selected").value,false);
       else emptyDetail();

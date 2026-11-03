@@ -33,6 +33,11 @@ está publicado ni que una actualización del ejecutable pueda deshacer una migr
 
 ## Revisar y aplicar la integración
 
+En instalaciones gestionadas, el programa candidato también debe poder leer los almacenes
+existentes de tareas, [Agent log](agent-log.md) y [favoritos](favoritos.md) antes de activarse.
+Esto se aplica al actualizar y al volver a una versión anterior. Conserva los datos y la copia
+de recuperación si se rechaza un candidato incompatible; no borres archivos para forzar el cambio.
+
 Ejecuta desde el **Python de destino** y pasa explícitamente la configuración del despliegue.
 En PowerShell, con esas dos rutas ya identificadas:
 

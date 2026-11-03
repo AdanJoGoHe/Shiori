@@ -103,7 +103,7 @@ No sobrescribas la entrada gestionada actual para ensayar la fase remota.
 
 ## Permisos, revocación y límites
 
-- Consulta anuncia diez herramientas, incluida `read_agent_log`. `capture_memory` y
+- Consulta anuncia once herramientas, incluida `read_agent_log`. `capture_memory` y
   `record_agent_action` se anuncian solo a escritores; llamarlas con credencial de lectura
   también se rechaza. Agent log requiere además activación local explícita del perfil.
   Una herramienta futura queda denegada hasta revisión explícita.

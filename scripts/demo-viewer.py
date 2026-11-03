@@ -7,6 +7,7 @@ from pathlib import Path
 from second_brain.core import Brain
 from second_brain.task_pages import TaskPages
 from second_brain.agent_log import AgentLog
+from second_brain.favorites import Favorites
 from second_brain.viewer import Viewer, serve_viewer
 
 
@@ -305,6 +306,23 @@ El visor consulta contenido autorizado. Las lecciones pasan por la captura valid
                 references=[],
             )
         )
+        favorites = Favorites(brain)
+        for target, title, tags in [
+            (
+                "documentation:demo-docs:instalacion.md",
+                "Guía de instalación",
+                ["python", "windows"],
+            ),
+            (
+                "documentation:demo-docs:arquitectura.md",
+                "Decisiones de arquitectura",
+                ["markdown", "local"],
+            ),
+            ("https://example.test/guide", "Referencia del laboratorio", ["referencia"]),
+        ]:
+            favorites.save(
+                dict(target=target, title=title, project="second-brain", tags=tags, version=0)
+            )
         serve_viewer(brain)
 
 

@@ -283,7 +283,7 @@ def test_http_origin_activation_and_safe_reference_resolution(brain):
 def test_mcp_and_configured_cli_parity_and_no_activation_by_agent(brain, tmp_path):
     async def scenario():
         async with Client(create_server(brain.config)) as client:
-            assert len(await client.list_tools()) == 12
+            assert len(await client.list_tools()) == 13
             assert not (await client.call_tool("memory_status", {})).data["agent_log"]["enabled"]
             assert (await client.call_tool("record_agent_action", {"candidate": action()})).data[
                 "status"

@@ -43,7 +43,7 @@ que no se trabajara. Favoritos se incorporará con su propio almacenamiento.
 
 MCP anuncia `record_agent_action` y `read_agent_log`. `memory_status.agent_log` permite comprobar
 disponibilidad, activación y alcance sin iniciar el proveedor. Un servidor actualizado anuncia
-doce herramientas; reinicia la conexión para descubrirlas. El CLI configurado es el respaldo.
+trece herramientas; reinicia la conexión para descubrirlas. El CLI configurado es el respaldo.
 
 Ejemplo ficticio de propuesta, cuyo resultado aún es desconocido:
 

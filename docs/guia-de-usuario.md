@@ -240,6 +240,7 @@ la CLI mientras reconectas.
 | Evaluar qué guardar | `classify_memory` | `brain classify --request-file 'solicitud.json'` |
 | Guardar nota/diario | `capture_memory` | `brain capture --event-file 'evento.json'` |
 | Consultar acciones informadas | `read_agent_log` | `brain agent-log list --project tutorial` |
+| Buscar solo en favoritos | `read_favorites` | `brain favorites list "echo" --tag comando` |
 | Registrar una acción revisada | `record_agent_action` | `brain agent-log record --event-file 'accion.json'` |
 | Consultar pendientes | `list_pending_captures` | `brain pending` |
 | Enumerar contenido | `list_content` | `brain catalog --kind note` |
@@ -422,6 +423,14 @@ fichas. Los backups con estos datos requieren una versión que los entienda. El 
 rechaza activar una versión anterior sin soporte de fichas cuando encuentra su almacén.
 [Detalles y límites](task-pages.md).
 
+## Favoritos: lo que quieres tener a mano
+
+Pulsa **Añadir a favoritos** en un resultado o en el lector. **Favoritos** reúne esas páginas y
+los enlaces web que guardes, con búsqueda visible y filtros por proyecto, etiquetas y destino.
+También aparecen en Inicio y puedes pedir a la IA «busca solo entre mis favoritos».
+Se conservan en el perfil del servidor al cerrar el navegador o actualizar. Guardar un enlace
+no descarga la web ni verifica su contenido. [Uso, CLI, MCP y recuperación](favoritos.md).
+
 ## Agent log: las acciones del agente
 
 Abre **Agent log** para consultar comandos, comprobaciones y enlaces informados por los agentes,
@@ -443,7 +452,7 @@ sintéticos, desde el checkout: `.\.venv\Scripts\python.exe scripts/demo-viewer.
 Al abrirlo verás **Inicio**, con textos marcados, páginas recientes y avances de Hoy. La fecha
 viene del servidor de la memoria. El menú lateral permite pasar a Biblioteca, Fragmentos y Diario;
 el tema también está ahí. **Agent log** permite consultar acciones informadas y activar su registro
-en este perfil. Favoritos sigue pendiente.
+en este perfil. **Favoritos** reúne tus páginas y enlaces guardados, también consultables por la IA.
 
 1. En **Biblioteca**, abre **Colecciones de la biblioteca** para elegir documentación o conocimiento.
    Usa el buscador visible arriba, o `Ctrl+K`. **Buscar en** cambia entre documentos y fragmentos;

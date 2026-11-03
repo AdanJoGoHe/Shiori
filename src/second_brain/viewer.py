@@ -16,29 +16,17 @@ from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
 from second_brain.annotations import COLORS, Annotations, Conflict, resolve_anchor, text_contract
-from second_brain.catalog import Catalog, catalog_diagnostics
+from second_brain.catalog import Catalog, catalog_diagnostics, markdown_body
 from second_brain.core import SLUG, safe_text
 from second_brain.workflow import JournalConflict
 from second_brain.task_pages import TaskPages, task_key
 from second_brain.agent_log import AgentLog
+from second_brain.favorites import Favorites
 
 
 def normalized(text):
     return "".join(
         c for c in unicodedata.normalize("NFKD", text.casefold()) if not unicodedata.combining(c)
-    )
-
-
-def markdown_body(content):
-    if content.startswith("---\n"):
-        _, separator, body = content[4:].partition("\n---\n")
-        if separator:
-            content = body
-    return re.sub(
-        r"^<!-- (?:event:[a-z0-9-]+|shiori-project:[a-z0-9-]*|shiori-data:[^\n]*) -->\n?",
-        "",
-        content,
-        flags=re.MULTILINE,
     )
 
 
@@ -349,7 +337,7 @@ class Viewer:
         )
         diagnostics["store_id"] = snapshot["diagnostics"]["store_id"]
         return {
-            "items": matches[offset : offset + 20],
+            "items": self.favorite_rows(matches[offset : offset + 20]),
             "total": len(matches),
             "next_offset": offset + 20 if offset + 20 < len(matches) else None,
             "facets": facets,
@@ -376,11 +364,28 @@ class Viewer:
         ]
         rendered = render(body, row, snapshot["items"])
         return {
-            "item": row,
+            "item": self.favorite_rows([row])[0],
             **rendered,
             **text_contract(rendered["html"], body),
             "related": related,
         }
+
+    def favorite_rows(self, rows):
+        try:
+            favorites = {r["target"]: r for r in Favorites(self.catalog.brain).export()["items"]}
+        except (ValueError, OSError, TypeError, KeyError):
+            return [{**row, "favorite_available": False} for row in rows]
+        return [
+            {
+                **row,
+                "favorite_available": True,
+                "favorite": favorites.get(row["id"])
+                if not favorites.get(row["id"], {}).get("deleted")
+                else None,
+                "favorite_version": favorites.get(row["id"], {}).get("version", 0),
+            }
+            for row in rows
+        ]
 
     def annotation_items(self, document_id):
         safe_text(document_id, 2000)
@@ -514,6 +519,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     "app.js",
                     "journal.js",
                     "agent-log.js",
+                    "favorites.js",
                     "style.css",
                     "theme.js",
                     "highlights.js",
@@ -526,6 +532,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     "app.js": "text/javascript",
                     "journal.js": "text/javascript",
                     "agent-log.js": "text/javascript",
+                    "favorites.js": "text/javascript",
                     "theme.js": "text/javascript",
                     "highlights.js": "text/javascript",
                     "style.css": "text/css",
@@ -535,6 +542,30 @@ class ViewerHandler(BaseHTTPRequestHandler):
                     files("second_brain").joinpath("web", name).read_bytes(),
                     mime + "; charset=utf-8",
                 )
+            elif route == "api/favorites":
+                args = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=30)
+                if set(args) - {
+                    "query",
+                    "project",
+                    "tag",
+                    "kind",
+                    "target",
+                    "id",
+                    "offset",
+                    "order",
+                } or any(len(v) != 1 for k, v in args.items() if k != "tag"):
+                    raise ValueError("Invalid favorites query")
+                filters = {k: args[k][0] for k in ["project", "kind", "target"] if k in args}
+                if "tag" in args:
+                    filters["tags"] = args["tag"]
+                result = Favorites(self.server.viewer.catalog.brain).query(
+                    args.get("query", [""])[0],
+                    filters,
+                    int(args.get("offset", ["0"])[0]),
+                    identity=args.get("id", [None])[0],
+                    order=args.get("order", ["recent"])[0],
+                )
+                self.reply(200, result)
             elif route == "api/agent-log":
                 args = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=12)
                 if set(args) - {
@@ -671,6 +702,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
         tasks_route = parsed.path == self.server.prefix + "/api/tasks"
         log_route = parsed.path == self.server.prefix + "/api/agent-log"
         log_config_route = parsed.path == self.server.prefix + "/api/agent-log/config"
+        favorite_route = parsed.path == self.server.prefix + "/api/favorites"
         if (
             parsed.path != self.server.prefix + "/api/annotations"
             and not category_route
@@ -679,6 +711,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
             and not tasks_route
             and not log_route
             and not log_config_route
+            and not favorite_route
         ) or len(self.path) > 5000:
             self.deny_write()
             return
@@ -725,7 +758,21 @@ class ViewerHandler(BaseHTTPRequestHandler):
             if len(raw) != int(lengths[0]):
                 raise ValueError("Incomplete JSON body")
             payload = json.loads(raw.decode("utf-8"))
-            if log_route or log_config_route:
+            if favorite_route:
+                store = Favorites(self.server.viewer.catalog.brain)
+                if self.command == "POST":
+                    result = store.save(payload)
+                elif (
+                    self.command == "DELETE"
+                    and isinstance(payload, dict)
+                    and set(payload) == {"version"}
+                ):
+                    result = store.remove(annotation_id, payload["version"])
+                else:
+                    raise ValueError("Use save or remove with current version")
+                self.reply(200, result)
+                return
+            elif log_route or log_config_route:
                 store = AgentLog(self.server.viewer.catalog.brain)
                 if log_config_route:
                     if not isinstance(payload, dict) or set(payload) != {"enabled", "revision"}:

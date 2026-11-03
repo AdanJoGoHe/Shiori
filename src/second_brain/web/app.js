@@ -86,6 +86,7 @@ function snapshot() {
     filters: Object.fromEntries(filterKeys.map(key => [key, $(key).value])),
     journal: Object.fromEntries(["journal-project", "journal-period", "journal-from", "journal-to", "journal-task-filter"].map(key => [key, $(key).value])),
     log: AgentLogUI.snapshot(),
+    favorites: FavoritesUI.snapshot(),
     focusId: document.activeElement.closest?.(".result")?.dataset.id, focusMark: document.activeElement.closest?.(".fragment-result")?.dataset.markId,
     y: window.scrollY, resultsScroll: $("results").scrollTop};
 }
@@ -108,10 +109,10 @@ function showScreen() {
   document.title = "Shiori · " + screens[screen][0];
   $("home-panel").hidden = screen !== "inicio";
   $("tasks-panel").hidden = screen !== "tareas";
-  $("upcoming-panel").hidden = screen !== "favoritos";
+  $("favorites-panel").hidden = screen !== "favoritos";
   $("agent-log-panel").hidden = screen !== "agent-log";
-  document.querySelector(".search-options").hidden = screen === "agent-log";
-  document.querySelector(".search-label").textContent = screen === "agent-log" ? "Buscar en Agent log" : "Buscar en tu biblioteca";
+  document.querySelector(".search-options").hidden = ["agent-log", "favoritos"].includes(screen);
+  document.querySelector(".search-label").textContent = screen === "agent-log" ? "Buscar en Agent log" : screen === "favoritos" ? "Buscar solo en tus favoritos" : "Buscar en tu biblioteca";
   $("search").placeholder = screen === "agent-log" ? "Un comando, una acción, un enlace registrado…" : "Un comando, una página, algo que aprendiste…";
   document.querySelector(".toolbar").hidden = !library;
   $("category-manager").hidden = !library;
@@ -154,7 +155,9 @@ function pageResult(item) {
   button.append(kind, element("h3", item.title),
     element("p", item.preview), element("div", dateText(item.updated_at) + (item.metadata.tags?.length ? " · " + item.metadata.tags.join(" / ") : ""), "result-foot"));
   button.onclick = () => openItem(item.id);
-  return button;
+  const row = element("div", undefined, "page-result-row");
+  row.append(button, FavoritesUI.pageButton(item));
+  return row;
 }
 function shortcuts(container, categories, home = false) {
   container.replaceChildren();
@@ -202,12 +205,13 @@ async function viewerInfo(refresh = false) {
   return deployment;
 }
 async function loadHome(number) {
-  const sections = ["home-fragments", "home-pages", "home-journal"];
+  const sections = ["home-fragments", "home-pages", "home-journal", "home-favorites"];
   for (const name of sections) { $(name).replaceChildren(element("p", "Leyendo…", "home-message")); $(name).setAttribute("aria-busy", "true"); }
   const requests = [
     api("api/items?view=fragments&sort=updated"),
     api("api/items?sort=updated"),
-    viewerInfo(true).then(info => api("api/journal?" + new URLSearchParams({start_date: info.today, end_date: info.today})))
+    viewerInfo(true).then(info => api("api/journal?" + new URLSearchParams({start_date: info.today, end_date: info.today}))),
+    api("api/favorites")
   ];
   await Promise.all(requests.map(async (request, index) => {
     const target = $(sections[index]);
@@ -222,6 +226,9 @@ async function loadHome(number) {
       } else if (index === 1) {
         for (const item of data.items.slice(0, 2)) target.append(pageResult(item));
         if (!data.items.length) target.append(element("p", ["partial", "limited", "unavailable"].includes(data.diagnostics?.status) ? "No se pudo confirmar qué páginas están disponibles. Abre Biblioteca para revisar el diagnóstico." : "Todavía no hay páginas disponibles. Añade notas o una fuente de documentación.", "home-message"));
+      } else if (index === 3) {
+        for (const item of data.items.slice(0,3)) target.append(FavoritesUI.row(item,true));
+        if (!data.items.length) target.append(element("p", "Guarda páginas desde el lector o añade enlaces en Favoritos.", "home-message"));
       } else {
         target.append(element("p", data.start_date, "home-date"));
         for (const item of data.items.filter(row => !row.superseded_by).slice(0, 2)) {
@@ -458,16 +465,12 @@ async function load() {
   const number = ++requestNumber;
   JournalUI.hide();
   AgentLogUI.hide();
+  FavoritesUI.hide();
   showScreen();
   remember();
   if (state.screen === "inicio") { warning(""); return loadHome(number); }
   if (state.screen === "agent-log") { warning(""); return AgentLogUI.load(); }
-  if (state.screen === "favoritos") {
-    warning("");
-    $("upcoming-title").textContent = "Favoritos persistentes · pendiente";
-    $("upcoming-description").textContent = "Guardar y recuperar páginas desde el visor y la IA llegará con el sistema de favoritos. Aún no se guardan favoritos aquí.";
-    return;
-  }
+  if (state.screen === "favoritos") { warning(""); return FavoritesUI.load(); }
   if (state.kind === "journal") {
     warning("");
     JournalUI.show();
@@ -550,6 +553,7 @@ async function openItem(id, markId = null, record = true) {
   $("task-link-panel").open = false;
   $("task-resources").open = false;
   $("reader-body").replaceChildren();
+  $("reader-favorite").replaceChildren();
   try {
     const data = await api("api/content?" + new URLSearchParams({
       id
@@ -558,6 +562,7 @@ async function openItem(id, markId = null, record = true) {
     const item = data.item;
     $("reader-source").textContent = names[item.kind] + " / " + item.source + " / " + item.path;
     $("reader-title").textContent = item.title;
+    $("reader-favorite").append(FavoritesUI.pageButton(item));
     const meta = $("reader-meta");
     meta.replaceChildren(element("div", dateText(item.updated_at) + (item.metadata.status ? " · " + (labels[item.metadata.status] || item.metadata.status) : "") + (item.metadata.project ? " · " + item.metadata.project : "")));
     for (const tag of item.metadata.tags || []) {
@@ -651,6 +656,7 @@ window.addEventListener("popstate", async () => {
     }
     for (const [key, value] of Object.entries(saved.journal || {})) $(key).value = value;
     AgentLogUI.restore(saved.log);
+    FavoritesUI.restore(saved.favorites);
     const pending = load(), request = requestNumber;
     await pending;
     if (route !== routeSequence || request !== requestNumber) return;
@@ -673,6 +679,7 @@ $("search").oninput = () => {
   state.offset = 0;
   timer = setTimeout(() => {
     if (state.screen === "agent-log") AgentLogUI.load(true);
+    else if (state.screen === "favoritos") FavoritesUI.load(true);
     else if (!["biblioteca", "fragmentos", "tareas"].includes(state.screen)) navigate($("view").value === "fragments" ? "fragmentos" : "biblioteca");
     else load();
   }, 250);
@@ -689,6 +696,7 @@ $("view").onchange = () => {
 $("fragment-color").onchange = () => { state.offset = 0; load(); };
 $("clear").onclick = () => {
   if (state.screen === "agent-log") { $("log-clear").click(); return; }
+  if (state.screen === "favoritos") { FavoritesUI.clear(); return; }
   state.categories = [];
   $("fragment-color").value = "";
   clearTimeout(timer);

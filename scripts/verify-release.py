@@ -240,6 +240,7 @@ def main():
                 "read_journal",
                 "resume_project",
                 "read_agent_log",
+                "read_favorites",
                 "record_agent_action",
             }
             diary = await client.call_tool("read_journal", {"project": "release-test"})
@@ -387,7 +388,7 @@ def main():
                     "install-uninstall-preserves-settings",
                     "owned-upgrade-preview-apply-retry",
                     "cli-capture-context-dedupe",
-                    "stdio-twelve-tools",
+                    "stdio-thirteen-tools",
                     "real-basic-memory-indexed-search",
                     "explicit-cli-mcp-provider-status",
                     "scope-secret-denial",

@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -22,6 +23,19 @@ METADATA = [
     "related",
     "sensitivity",
 ]
+
+
+def markdown_body(content):
+    if content.startswith("---\n"):
+        _, separator, body = content[4:].partition("\n---\n")
+        if separator:
+            content = body
+    return re.sub(
+        r"^<!-- (?:event:[a-z0-9-]+|shiori-project:[a-z0-9-]*|shiori-data:[^\n]*) -->\n?",
+        "",
+        content,
+        flags=re.MULTILINE,
+    )
 
 
 def catalog_diagnostics(rows, errors, truncated, collections, registered_notes=None):

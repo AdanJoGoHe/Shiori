@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from second_brain.annotations import Annotations, decode
 from second_brain.task_pages import TaskPages, decode as decode_tasks
 from second_brain.agent_log import AgentLog, decode as decode_log
+from second_brain.favorites import Favorites, decode as decode_favorites
 from second_brain.core import Brain, SLUG, TYPES, atomic_write, scoped_path, validate_note
 
 MAX_BYTES = 64_000_000
@@ -34,6 +35,7 @@ def allowed_file(name):
         "state/annotations.json",
         "state/task-pages.json",
         "state/agent-log.json",
+        "state/favorites.json",
     } or (name.startswith("vault/") and VAULT_FILE.fullmatch(name[6:]))
 
 
@@ -95,6 +97,8 @@ def validate_files(files):
         decode_tasks(files["state/task-pages.json"].decode("utf-8"))
     if "state/agent-log.json" in files:
         decode_log(files["state/agent-log.json"].decode("utf-8"))
+    if "state/favorites.json" in files:
+        decode_favorites(files["state/favorites.json"].decode("utf-8"))
     return ledger
 
 
@@ -113,6 +117,11 @@ def write_files(destination, files, config=None):
 
 
 def validate_scope_files(files, scope):
+    if (
+        "state/favorites.json" in files
+        and decode_favorites(files["state/favorites.json"].decode("utf-8"))["scope"] != scope
+    ):
+        raise ValueError("Favorites scope does not match backup")
     if (
         "state/agent-log.json" in files
         and decode_log(files["state/agent-log.json"].decode("utf-8"))["scope"] != scope
@@ -144,7 +153,13 @@ def backup(brain, output):
         raise ValueError("Backup destination must be separate from vault and state")
     if output.exists():
         raise ValueError("Backup destination already exists")
-    with brain.lock, Annotations(brain).lock, TaskPages(brain).lock, AgentLog(brain).lock:
+    with (
+        brain.lock,
+        Annotations(brain).lock,
+        TaskPages(brain).lock,
+        AgentLog(brain).lock,
+        Favorites(brain).lock,
+    ):
         brain.ledger()
         files = {}
         for folder in sorted(set(TYPES.values()) | {"journal", "archive"}):
@@ -175,6 +190,9 @@ def backup(brain, output):
         log_path = scoped_path(brain.state, "agent-log.json")
         if log_path.exists():
             files["state/agent-log.json"] = read_bounded(log_path)
+        favorites_path = scoped_path(brain.state, "favorites.json")
+        if favorites_path.exists():
+            files["state/favorites.json"] = read_bounded(favorites_path)
         ledger = validate_files(files)
         validate_scope_files(files, brain.scope)
         for note_id in ledger["notes"]:

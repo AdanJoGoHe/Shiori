@@ -73,6 +73,7 @@ Para proteger o mover tus notas:
 - [Aprender procedimientos y convertirlos en skills](docs/learning.md).
 - [Diario de avances y resúmenes por día o semana](docs/diario.md).
 - [Agent log: acciones del agente, comandos y referencias](docs/agent-log.md).
+- [Favoritos: páginas y enlaces para ti y para la IA](docs/favoritos.md).
 - [CLI para agentes, vista previa y respaldo de MCP](docs/agent-cli.md).
 
 ## Cómo va el proyecto

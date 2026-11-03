@@ -80,6 +80,7 @@ async def main():
             "read_journal",
             "resume_project",
             "read_agent_log",
+            "read_favorites",
             "record_agent_action",
         }
         status = await client.call_tool("memory_status", {})

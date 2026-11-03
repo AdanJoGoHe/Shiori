@@ -284,34 +284,39 @@ def resume_project(brain, project, max_chars=8000):
 def timeline(brain, start_date=None, end_date=None, project=None, offset=0):
     """A bounded visual page; task state and links are folded from the full retained history."""
     from datetime import date, timedelta
+    from second_brain.journal import load_entries
 
     def parse(value):
         if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
             raise ValueError("Dates must use YYYY-MM-DD")
         return date.fromisoformat(value)
 
-    end = parse(end_date) if end_date else brain.now().date()
+    today = brain.now().date()
+    end = parse(end_date) if end_date else today
     start = parse(start_date) if start_date else end - timedelta(days=min(6, end.toordinal() - 1))
     if not 0 <= (end - start).days <= 30 or type(offset) is not int or offset < 0:
         raise ValueError("Use a 1–31 day range and nonnegative offset")
     if project is not None and (not isinstance(project, str) or not SLUG.fullmatch(project)):
         raise ValueError("Project must be a lowercase slug")
-    state = snapshot(brain)
-    entries = [
-        row
-        for row in state["events"].values()
-        if start <= datetime.fromisoformat(row["at"]).date() <= end
-        and (project is None or row["project"] == project)
-    ]
+    # Read the requested calendar window directly: a bounded current-state scan must not
+    # hide an older day. Global corrections/task state can still be incomplete and are flagged.
+    with brain.lock:
+        state = snapshot(brain)
+        selected, errors = load_entries(
+            brain, [start + timedelta(days=delta) for delta in range((end - start).days + 1)]
+        )
+    entries = [row for row in selected if project is None or row["project"] == project]
     entries.sort(key=lambda row: row["_sequence"], reverse=True)
     result = {
         "scope": brain.scope,
+        "today": today.isoformat(),
+        "timezone": brain.config["timezone"],
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
         "items": [],
         "total": len(entries),
         "next_offset": None,
-        "error_count": len(state["errors"]),
+        "error_count": len(state["errors"]) + len(errors),
         "truncated": False,
     }
     for index in range(offset, min(offset + 20, len(entries))):
@@ -330,8 +335,27 @@ def timeline(brain, start_date=None, end_date=None, project=None, offset=0):
                 "change_reason",
                 "source_agent",
                 "structured",
+                "note_id",
             )
         }
+        item["day"] = datetime.fromisoformat(row["at"]).date().isoformat()
+        item["task_changes"] = []
+        for change in row["tasks"]:
+            current = state["tasks"].get((row["project"], change["id"]))
+            known = current and any(
+                entry["event_id"] == row["event_id"] for entry in current["history"]
+            )
+            item["task_changes"].append(
+                {
+                    "id": change["id"],
+                    "title": change["title"],
+                    "status": change["status"],
+                    "version": change["version"] + 1,
+                    "current_status": current["status"] if known else None,
+                    "current_version": current["version"] if known else None,
+                    "current_at": current["at"] if known else None,
+                }
+            )
         item["progress"] = {
             key: [value[:300] for value in values[:3]] for key, values in row["progress"].items()
         }

@@ -8,7 +8,7 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 async function main() {
   assert.equal(new URL(input.url).hostname, '127.0.0.1');
   const browser = await chromium.launch({headless:true, ...(process.env.SB_TEST_BROWSER ? {executablePath:process.env.SB_TEST_BROWSER} : {})});
-  const context = await browser.newContext({viewport:{width:1440,height:1000}, reducedMotion:'reduce'});
+  const context = await browser.newContext({viewport:{width:1440,height:1000}, timezoneId:'Pacific/Honolulu', reducedMotion:'reduce'});
   const page = await context.newPage(), errors = [], checks = [];
   page.setDefaultTimeout(9000);
   page.on('pageerror', error => errors.push(error.message));
@@ -22,9 +22,69 @@ async function main() {
   await page.goto(input.url);
   await page.locator('.collection[data-kind="journal"]').click();
   await page.locator('#journal-count').getByText(/capturas/).waitFor();
+  const info = await api('api/viewer-info');
+  assert.equal(await page.locator('#journal-from').inputValue(),info.today);
+  assert.equal(await page.locator('#journal-to').inputValue(),info.today);
+  assert.match(await page.locator('#journal-period-title').innerText(),/Hoy/);
   await selectProject('diario-demo');
   assert.equal(await page.locator('.journal-thread').count(), 2);
   assert.match(await page.locator('#journal-task-count').innerText(), /2 activos/);
+  await page.getByRole('button',{name:'Ayer',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  assert.equal(await page.locator('.journal-thread').count(),1);
+  assert.match(await page.locator('#journal-period-title').innerText(),/Ayer/);
+  assert.match(await page.locator('#journal-task-count').innerText(),/2 activos/);
+  await page.locator('.journal-recorded-tasks>summary').click();
+  assert.match(await page.locator('.journal-task-comparison').innerText(),/Registrado entonces: Abierto · v1/);
+  assert.match(await page.locator('.journal-task-comparison').innerText(),/Estado actual registrado: Bloqueado · v2/);
+  await page.getByRole('button',{name:'Ver último cambio',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  assert.match(await page.locator('#journal-entries').innerText(),/Corregida la lectura/);
+  await page.getByRole('button',{name:'Últimos 7 días',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  assert.equal(await page.locator('.journal-day').count(),2);
+  assert.equal(await page.locator('.journal-thread').count(),3);
+  await page.getByRole('button',{name:'Hoy',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  check('today-yesterday-week-calendar-and-current-versus-recorded-state');
+  await page.locator('#journal-dates>summary').click();
+  await page.locator('#journal-month').fill('2026-05');
+  await page.getByRole('button',{name:'Ver mes',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  assert.equal(await page.locator('#journal-from').inputValue(),'2026-05-01');
+  assert.equal(await page.locator('#journal-to').inputValue(),'2026-05-31');
+  assert.match(await page.locator('#journal-entries').innerText(),/Trabajo de mayo/);
+  assert.match(await page.locator('#journal-task-count').innerText(),/2 activos/);
+  await page.locator('#journal-dates>summary').click();
+  await page.locator('#journal-month').fill('');
+  await page.getByRole('button',{name:'Mes anterior',exact:true}).click();
+  assert.equal(await page.locator('#journal-from').inputValue(),'2026-05-01');
+  await page.locator('#journal-month').fill('2026-05');
+  await page.locator('#journal-range-from').fill('2026-01-01');
+  await page.getByRole('button',{name:'Ver periodo',exact:true}).click();
+  assert.match(await page.locator('#journal-message').innerText(),/1 a 31 días/);
+  assert.equal(await page.locator('#journal-from').inputValue(),'2026-05-01');
+  await page.locator('#journal-range-from').fill('2026-05-12');
+  await page.locator('#journal-range-to').fill('2026-05-12');
+  await page.getByRole('button',{name:'Ver periodo',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  assert.match(await page.locator('#journal-entries').innerText(),/Trabajo de mayo/);
+  assert.equal(await page.locator('#journal-from').inputValue(),'2026-05-12');
+  await page.locator('#journal-dates>summary').click();
+  await page.getByRole('button',{name:'Mes anterior',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  assert.equal(await page.locator('#journal-from').inputValue(),'2026-04-01');
+  assert.equal(await page.locator('#journal-to').inputValue(),'2026-04-30');
+  assert.match(await page.locator('#journal-entries').innerText(),/Sin actividad registrada/);
+  await page.getByRole('button',{name:'Hoy',exact:true}).click();
+  await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  await page.getByRole('button',{name:'Abrir nota vinculada',exact:true}).click();
+  await page.locator('#reader-body').getByText(/Nota ficticia enlazada/).waitFor();
+  assert.match(await page.locator('#reader-body').innerText(),/Nota ficticia enlazada/);
+  await page.goBack();
+  await page.waitForFunction(() => document.body.classList.contains('journal-active') && !document.getElementById('journal-message').textContent.includes('Leyendo'));
+  assert.equal(await project.inputValue(),'diario-demo');
+  check('six-month-old-archive-month-navigation-linked-note-and-back');
   await page.locator('#journal-resume').click();
   await page.locator('#journal-resume-result').waitFor({state:'visible'});
   assert.match(await page.locator('#journal-resume-result').innerText(), /Validar el lector/);
@@ -53,6 +113,7 @@ async function main() {
   assert.match(await task.innerText(), /3 cambios/);
   check('state-change-history-and-active-filter');
   const original = page.locator('.journal-entry[data-event-id="lector-final"]');
+  await original.locator('.journal-entry-detail>summary').click();
   await original.locator('summary').filter({hasText:'Corregir o agrupar'}).click();
   await original.getByLabel('Resultado corregido').fill('Lectura verificada con cuatro ejemplos sintéticos.');
   await original.getByLabel('Qué cambia y por qué').fill('Añadida la cuarta comprobación.');
@@ -62,7 +123,7 @@ async function main() {
   assert.match(await page.locator('#journal-entries').innerText(), /capturas anteriores/);
   check('linked-correction-preserves-original');
   await page.locator('#journal-new-task>summary').click();
-  await page.locator('#journal-task-title').fill('Revisar navegación móvil');
+  await page.locator('#journal-task-title').fill('Revisar navegación con teclado');
   await page.locator('#journal-task-details').fill('<img src=x onerror="globalThis.journalInjected=true">');
   await page.locator('#journal-task-form button').click();
   await page.waitForFunction(() => document.getElementById('journal-message').textContent.startsWith('Guardado'));
@@ -72,7 +133,7 @@ async function main() {
   // A second session changes the task while the visible form retains the old version.
   const board = await api('api/journal-state?project=diario-demo');
   const current = board.tasks.find(row=>row.id==='editor');
-  const update = {scope:'personal',mode:'journal-only',source_agent:'manual',project:'diario-demo',event_id:'browser-concurrent',title:'Estado externo',summary:'Cambio sintético de otra sesión.',tasks:[{id:current.id,title:current.title,details:current.details,status:'blocked',version:current.version}]};
+  const update = {scope:input.scope,mode:'journal-only',source_agent:'manual',project:'diario-demo',event_id:'browser-concurrent',title:'Estado externo',summary:'Cambio sintético de otra sesión.',tasks:[{id:current.id,title:current.title,details:current.details,status:'blocked',version:current.version}]};
   const result = await page.request.post(input.url+'api/journal',{data:update,headers:{Origin:new URL(input.url).origin}});
   assert.equal(result.status(),201);
   await task.locator('summary').filter({hasText:'Cambiar estado'}).click();
@@ -90,13 +151,13 @@ async function main() {
   await page.waitForFunction(() => !document.getElementById('journal-message').textContent.includes('Leyendo'));
   await page.locator('#journal-task-filter').selectOption('active');
   const screenshots=[];
-  for(const [width,theme] of [[1440,'light'],[768,'dark'],[390,'latte']]) {
+  for(const width of [1280,1440,1920,720]) for(const theme of ['light','dark','latte']) {
     await page.setViewportSize({width,height:1000});
     await page.locator('#theme').selectOption(theme);
     await page.screenshot({path:path.join(input.screenshots,`journal-${width}-${theme}.png`),fullPage:true});
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1), `horizontal overflow at ${width}`);
     screenshots.push(path.join(input.screenshots,`journal-${width}-${theme}.png`));
-    if(width===390) {
+    if(width===720) {
       await page.locator('[data-journal-pane="tasks"]').click();
       assert.ok(await page.locator('#journal-task-list').isVisible());
       assert.ok(!(await page.locator('#journal-entries').isVisible()));
@@ -105,7 +166,7 @@ async function main() {
   }
   check('three-widths-and-themes-without-overflow');
   await selectProject('empty-demo');
-  assert.match(await page.locator('#journal-entries').innerText(),/No hay avances/);
+  assert.match(await page.locator('#journal-entries').innerText(),/Sin actividad registrada/);
   assert.match(await page.locator('#journal-task-list').innerText(),/No hay pendientes/);
   await page.route('**/api/journal?*',route=>route.abort());
   await page.locator('#refresh').click();
@@ -113,6 +174,6 @@ async function main() {
   check('empty-and-error-states');
   assert.deepEqual(errors,[]);
   await browser.close();
-  console.log(JSON.stringify({status:'passed',data:'synthetic-only',checks,screenshots}));
+  console.log(JSON.stringify({status:'passed',scope:input.scope,data:'synthetic-only',checks,screenshots}));
 }
 main().catch(error=>{console.error(error);process.exit(1);});

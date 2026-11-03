@@ -366,7 +366,9 @@ brain journal --project tutorial
 Puedes añadir `project` y `progress` con resultados, comprobaciones, decisiones, bloqueos y
 próximos pasos. La [guía del diario y los resúmenes](diario.md) explica el formato y cómo consultar
 un día o una semana desde MCP o CLI. El filtro por proyecto requiere haberlo guardado en el avance.
-El visor incorpora una vista de diario por actividad y pendientes con historial. `resume_project`
+El visor abre el diario en **Hoy**, con **Ayer**, últimos siete días e **Histórico** para elegir
+cualquier mes o fecha conservada, aunque sea de hace seis meses o más. Agrupa por día, proyecto
+y actividad, con los pendientes actuales al lado. `resume_project`
 prioriza los pendientes y el último resultado; `read_journal(view="tasks", project="ejemplo")`
 consulta también los estados cerrados. Véase [seguimiento y reanudación](diario.md#verlo-y-mantener-los-pendientes).
 

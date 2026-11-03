@@ -53,18 +53,22 @@
     <p id="task-message" role="status" aria-live="polite"></p>
   </section>
   <section id="journal-panel" hidden aria-label="Diario por proyecto">
+    <input id="journal-period" type="hidden" value="today">
+    <input id="journal-from" type="hidden"><input id="journal-to" type="hidden">
+    <div class="journal-daybar"><div class="journal-periods" role="group" aria-label="Periodo del diario"><button type="button" class="quiet" data-journal-period="today" aria-pressed="true">Hoy</button><button type="button" class="quiet" data-journal-period="yesterday" aria-pressed="false">Ayer</button><button type="button" class="quiet" data-journal-period="week" aria-pressed="false">Últimos 7 días</button></div><div class="journal-day-steps"><button id="journal-previous" type="button" class="quiet">Día anterior</button><button id="journal-next-day" type="button" class="quiet">Día siguiente</button></div></div>
     <div class="journal-filters">
       <label>Proyecto<input id="journal-project" list="journal-projects" maxlength="100" pattern="[a-z0-9][a-z0-9-]{0,99}" placeholder="Todos los proyectos" autocomplete="off"><datalist id="journal-projects"></datalist></label>
-      <details id="journal-dates"><summary>Periodo</summary><div class="journal-date-fields"><label>Desde<input id="journal-from" type="date"></label><label>Hasta<input id="journal-to" type="date"></label></div></details>
+      <details id="journal-dates"><summary>Histórico · elegir fecha o mes</summary><form id="journal-month-form"><label>Mes del histórico<input id="journal-month" type="month" required></label><div class="journal-periods"><button id="journal-previous-month" type="button" class="quiet">Mes anterior</button><button type="submit" class="quiet">Ver mes</button><button id="journal-next-month" type="button" class="quiet">Mes siguiente</button></div></form><form id="journal-period-form"><div class="journal-date-fields"><label>Desde<input id="journal-range-from" type="date" required></label><label>Hasta<input id="journal-range-to" type="date" required></label></div><button type="submit" class="quiet">Ver periodo</button><p>Cualquier fecha conservada, sin límite de antigüedad. Hasta 31 días por consulta.</p></form></details>
       <button id="journal-resume" class="quiet" disabled>Retomar proyecto</button>
     </div>
+    <div class="journal-day-heading"><h2 id="journal-period-title" tabindex="-1">Hoy</h2><p id="journal-timezone" class="journal-meta"></p></div>
     <p id="journal-message" role="status" aria-live="polite"></p>
     <section id="journal-resume-result" class="journal-resume" hidden aria-label="Contexto para retomar"></section>
     <div class="journal-mobile-tabs" role="group" aria-label="Sección del diario"><button type="button" data-journal-pane="feed" aria-pressed="true">Avances</button><button type="button" data-journal-pane="tasks" aria-pressed="false">Pendientes</button></div>
     <div class="journal-grid">
-      <section class="journal-feed"><div class="journal-section-head"><h2>Avances</h2><span id="journal-count"></span></div><div id="journal-entries" aria-busy="false"></div><button id="journal-more" class="quiet" hidden>Más avances</button></section>
-      <section class="journal-tasks"><div class="journal-section-head"><h2>Pendientes con seguimiento</h2><span id="journal-task-count"></span></div>
-        <p class="journal-help">Pendientes de todo el historial del proyecto. El periodo filtra los avances; sus próximos pasos son sugerencias históricas.</p>
+      <section class="journal-feed" aria-label="Avances del periodo"><div class="journal-section-head"><h2>Lo que quedó registrado</h2><span id="journal-count"></span></div><div id="journal-entries" aria-busy="false"></div><button id="journal-more" class="quiet" hidden>Más avances</button></section>
+      <section class="journal-tasks" aria-label="Pendientes actuales"><div class="journal-section-head"><h2>Pendientes actuales</h2><span id="journal-task-count"></span></div>
+        <p class="journal-help">Estado más reciente de todo el historial. Sigue aquí aunque consultes otro día.</p>
         <label>Ver<select id="journal-task-filter"><option value="active">Abiertos y bloqueados</option><option value="all">Todos los estados</option></select></label>
         <div id="journal-task-list"></div><button id="journal-tasks-more" class="quiet" hidden>Más pendientes</button>
         <details id="journal-new-task"><summary>Nuevo pendiente</summary><form id="journal-task-form"><label>Título<input id="journal-task-title" maxlength="200" required></label><label>Contexto o siguiente acción<textarea id="journal-task-details" maxlength="500" rows="2"></textarea></label><button type="submit">Guardar pendiente</button><p>Selecciona un proyecto para guardarlo.</p></form></details>

@@ -78,15 +78,33 @@ un servidor antiguo puede seguir usando el resumen de seis campos.
 
 ## Verlo y mantener los pendientes
 
-Abre **Diario** en el visor. Verás avances agrupados por actividad, con su historial desplegable,
-el proyecto y el periodo. En escritorio, los pendientes están al lado; en móvil y tablet, cambia
-entre **Avances** y **Pendientes**. Los temas Claro, Oscuro y Café Latte siguen disponibles.
+Abre **Diario** en el visor: empieza en **Hoy**, con fecha completa y accesos a **Ayer** y
+**Últimos 7 días**. El día y las horas se muestran según la zona horaria del despliegue,
+aunque el navegador esté en otra zona. Los avances se agrupan por día, proyecto y actividad;
+los resultados, comprobaciones y bloqueos quedan a la vista. Decisiones, próximos pasos,
+correcciones y capturas anteriores se pueden desplegar. Los temas Claro, Oscuro y Café Latte
+siguen disponibles. En PC, los pendientes actuales están al lado; con zoom alto se puede
+cambiar entre **Avances** y **Pendientes**.
 **Abrir día completo** lleva al lector con todo el texto, sin los metadatos internos.
+Si la captura creó o actualizó una nota, **Abrir nota vinculada** abre su versión actual.
+
+### Consultar el histórico, también de hace seis meses
+
+Abre **Histórico · elegir fecha o mes**, elige el mes y pulsa **Ver mes**. Puedes pasar al
+mes anterior/siguiente o elegir un periodo concreto con **Desde**, **Hasta** y **Ver periodo**.
+Cada consulta admite hasta 31 días; puedes consultar cualquier fecha conservada, sin un límite
+de antigüedad de 31 días. **Ver este día** abre una fecha concreta y **Hoy** vuelve al presente.
+No hay borrado automático por antigüedad. Si faltan registros se muestra «sin actividad registrada»;
+si la lectura falla o alcanza un límite, se avisa de que está incompleta.
 
 El periodo filtra los avances. Los pendientes se calculan desde todo el historial conservado del
 proyecto, de modo que uno antiguo no desaparezca al cambiar de semana. El selector permite ver
 abiertos/bloqueados o todos los estados. Puedes crear un pendiente, cambiar su estado, reabrirlo
 y consultar sus cambios. Escribe un slug de proyecto nuevo o elige uno de las sugerencias.
+En una captura antigua, despliega **Pendientes registrados en esta captura** para comparar
+su estado/versión de entonces con el estado actual registrado. **Ver último cambio** lleva al
+día de ese cambio. Una corrección de texto conserva los estados originales del seguimiento.
+El vínculo con acciones de Agent log se incorporará cuando exista su almacenamiento.
 
 Un pendiente tiene un ID estable dentro de su proyecto y una versión. Ejemplo sintético para
 añadir al candidato anterior:

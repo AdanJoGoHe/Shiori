@@ -34,7 +34,8 @@ en su propia rama; este visor usa las APIs y datos del despliegue seleccionado.
 
 Favoritos y Agent log muestran explícitamente que están pendientes. Este incremento no guarda
 favoritos, no registra herramientas y no migra ningún almacén. El diario conserva su flujo actual;
-su rework de Hoy/Ayer y el lector mejorado continúan en las tareas #33 y #34.
+ahora abre en Hoy y permite navegar por días y meses de cualquier antigüedad conservada.
+El lector mejorado continúa en la tarea #34.
 
 ## Decisiones visuales
 
@@ -72,6 +73,19 @@ El menú **Tareas** añade contexto por código, con cuerpo Markdown, estados y 
 marcas y URLs. Reutiliza las anotaciones y el lector. No sustituye los pendientes del Diario ni
 convierte su contenido en conocimiento verificado. [Uso y contratos](task-pages.md).
 
+## Diario por días e histórico
+
+Diario responde «¿qué avancé ese día?». Hoy/Ayer y los resultados del día tienen prioridad,
+con pendientes actuales en la columna de al lado. Histórico permite elegir cualquier mes o
+periodo conservado, también de hace seis meses: 31 días es el tamaño máximo de una consulta,
+no una caducidad. Las capturas se agrupan por día/proyecto/actividad, con resultados,
+comprobaciones y bloqueos antes del detalle. Los cambios de estado quedan después de los avances.
+
+Las capturas antiguas distinguen estado/versión de entonces y actual; los enlaces abren la
+nota vinculada o el día completo y Atrás conserva el periodo. Un límite del escaneo global
+de pendientes no oculta el mes seleccionado; la lectura incompleta se indica. No se migra ni
+reescribe el diario. [Guía del diario](diario.md#consultar-el-histórico-también-de-hace-seis-meses).
+
 ## Comprobarlo
 
 Con Python 3.12 y las dependencias de desarrollo instaladas:
@@ -91,6 +105,7 @@ python scripts/check-workspace-workflow.py
 python scripts/check-workspace-workflow.py --task-pages
 python scripts/check-annotation-workflow.py
 python scripts/check-journal-workflow.py
+python scripts/check-journal-workflow.py --scope work
 ```
 
 El primer recorrido comprueba perfiles personal/trabajo independientes, día del servidor,

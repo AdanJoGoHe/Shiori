@@ -1,6 +1,7 @@
 """Run the local viewer with disposable synthetic content, never the personal vault."""
 
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 
 from second_brain.core import Brain
@@ -141,6 +142,87 @@ El visor consulta contenido autorizado. Las lecciones pasan por la captura valid
                         label="Incidencia de ejemplo",
                     ),
                 ],
+            )
+        )
+        base = dict(
+            scope="personal", mode="journal-only", source_agent="manual", project="second-brain"
+        )
+        task = dict(
+            id="editor-demo", title="Comprobar el lector", details="Usar un ejemplo ficticio"
+        )
+        brain.now = lambda: moment - timedelta(days=180)
+        brain.capture(
+            dict(
+                base,
+                event_id="demo-archive",
+                title="Primera guía de ejemplo revisada",
+                summary="Avance ficticio antiguo para probar la navegación por meses.",
+                progress={"completed": ["Preparada la primera guía del laboratorio."]},
+            )
+        )
+        brain.now = lambda: moment - timedelta(days=2)
+        brain.capture(
+            dict(
+                base,
+                event_id="demo-day-start",
+                activity="lector",
+                title="Lector preparado",
+                summary="Preparado el documento de ejemplo para revisar las marcas.",
+                tasks=[dict(task, status="open", version=0)],
+                progress={"completed": ["Creado un documento con un comando multilínea."]},
+            )
+        )
+        brain.now = lambda: moment - timedelta(days=1)
+        brain.capture(
+            dict(
+                base,
+                event_id="demo-day-blocked",
+                activity="lector",
+                title="Marcas revisadas",
+                summary="Las marcas conservan el texto. Queda pendiente la vuelta desde el lector.",
+                tasks=[dict(task, status="blocked", version=1)],
+                progress={
+                    "checks": ["Copia exacta del comando comprobada."],
+                    "blockers": ["Revisar la vuelta con el teclado."],
+                },
+            )
+        )
+        brain.now = lambda: moment
+        brain.capture(
+            dict(
+                base,
+                event_id="demo-day-done",
+                activity="lector",
+                title="Lector comprobado",
+                summary="Se puede abrir una marca y volver al resultado sin perder el contexto.",
+                tasks=[dict(task, status="done", version=2)],
+                progress={
+                    "completed": ["Conservados los filtros al volver del lector."],
+                    "checks": ["Navegación con teclado y copia exacta comprobadas."],
+                    "decisions": ["Mantener los archivos Markdown como fuente."],
+                },
+            )
+        )
+        brain.capture(
+            dict(
+                base,
+                event_id="demo-day-next",
+                activity="paquete",
+                title="Paquete de ejemplo preparado",
+                summary="Preparada una instalación ficticia para revisar la guía.",
+                tasks=[
+                    dict(
+                        id="guia-demo",
+                        title="Revisar la guía de instalación",
+                        details="Comprobar los pasos con datos ficticios",
+                        status="open",
+                        version=0,
+                    )
+                ],
+                progress={
+                    "blockers": ["Falta revisar la guía en una instalación nueva."],
+                    "next_steps": ["Seguir la guía con un entorno desechable."],
+                },
             )
         )
         serve_viewer(brain)

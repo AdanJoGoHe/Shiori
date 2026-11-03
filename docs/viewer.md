@@ -49,7 +49,9 @@ selection state stays in this tab and browser history state, not URL parameters,
 or analytics. Back/Forward restores filters, pagination and the selected reader. Reload starts
 the named view with fresh filters. Only known screen names appear in hash routes; existing
 `#diario` links remain supported.
-The Tema selector separately offers Claro (default), Oscuro and Café Latte. Only the theme name
+The Tema selector separately offers Claro (default), Oscuro · Luz de luna and Café Latte. The dark
+palette uses moonlit blue accents and distinct navigation/reader surfaces, retaining the `dark`
+preference and the saved highlight colors. Only the theme name
 is saved in browser localStorage; unavailable/invalid storage falls back to Claro. A local script
 runs before CSS to avoid a wrong-theme first paint; native controls use the matching color-scheme.
 Preferences belong to the browser origin: using the same viewer port preserves them across server

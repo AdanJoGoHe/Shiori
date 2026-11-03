@@ -507,7 +507,10 @@ La búsqueda requiere marcas guardadas previamente; no extrae comandos ni IPs au
 Por ejemplo, busca «ocupa puerto» para recuperar una marca titulada «Ver qué proceso ocupa un puerto»,
 aunque esas palabras no aparezcan en el comando. Son coincidencias por palabras, no búsqueda semántica.
 
-El selector **Tema** ofrece Claro, Oscuro y Café Latte. Guarda la preferencia en ese navegador
+El selector **Tema** ofrece Claro, **Oscuro · Luz de luna** y Café Latte. El oscuro combina
+fondos azul noche, acentos de loto azul y separaciones visibles entre navegación, filtros y lector.
+Las marcas guardadas conservan sus colores; los avisos y resultados mantienen su significado.
+Si ya usabas Oscuro, tu preferencia abre Luz de luna. Guarda la preferencia en ese navegador
 y origen local; distintos puertos o restricciones del navegador pueden cambiar su persistencia.
 El valor inicial es **Claro**, también si el sistema operativo está en oscuro. No hay modo
 automático del sistema. Si el almacenamiento está bloqueado, cambiar el tema sigue funcionando

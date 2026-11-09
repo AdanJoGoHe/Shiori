@@ -28,6 +28,7 @@ def main():
     assert Version(version("second-brain")) == Version(new["version"]), (
         "Run with the installed candidate wheel"
     )
+    checkpoint_tools = Version(new["version"]) >= Version("0.1.0a8")
     with tempfile.TemporaryDirectory(prefix="shiori-release-pair-") as folder:
         root = Path(folder) / "Synthetic café memory"
         command = [
@@ -66,6 +67,17 @@ def main():
         skills = Path(folder) / "synthetic-home/.augment/skills"
         owned = Path(cli("augment", "--skills-dir", str(skills), "--apply")["skill"])
         original_skill = owned.read_bytes()
+
+        def check_refreshed_skill():
+            assert owned.read_bytes() != original_skill
+            if checkpoint_tools:
+                from second_brain.runtime import work_skill_files
+
+                for name, content in work_skill_files().items():
+                    assert (owned.parent / name).read_text(encoding="utf-8") == content
+            else:
+                assert b"resume_project" in owned.read_bytes()
+
         foreign = skills / "other/SKILL.md"
         foreign.parent.mkdir()
         foreign.write_text("Synthetic independent skill", encoding="utf-8")
@@ -132,7 +144,7 @@ def main():
         # Local-bundle updates and rollback refresh the owned skill explicitly, as documented.
         assert cli("augment", "--skills-dir", str(skills), "--apply")["applied"]
         assert cli("status")["active"] == new["version"]
-        assert b"resume_project" in owned.read_bytes() and owned.read_bytes() != original_skill
+        check_refreshed_skill()
         assert cli("run", "read", candidate["id"]) == before
         assert (root / "data/state/annotations.json").read_bytes() == annotations
 
@@ -202,13 +214,49 @@ def main():
         assert cli("rollback", "--apply")["status"] == "rolled-back"
         assert cli("status")["active"] == new["version"]
         assert cli("augment", "--skills-dir", str(skills), "--apply")["applied"]
-        assert b"resume_project" in owned.read_bytes()
+        check_refreshed_skill()
         assert cli("run", "project-resume", "release-check")["active_tasks"] == pack["active_tasks"]
         assert foreign.read_text(encoding="utf-8") == "Synthetic independent skill"
         assert (root / "data/config.json").read_bytes() == configuration
         recovery = verify_recovery(
             Brain(load_config(root / "data/config.json")), Path(folder) / "current-data"
         )
+        checkpoint = dict(
+            scope="work",
+            issue_key="DEMO-1234",
+            event_id="upgrade-checkpoint",
+            expected_version=1,
+            source_agent="manual",
+            summary="Checked the synthetic rollout.",
+            progress={"next_steps": ["Recheck the fixture."]},
+        )
+        if checkpoint_tools:
+
+            async def save_checkpoint():
+                transport = {
+                    "mcpServers": {
+                        "work": {
+                            "command": sys._base_executable,
+                            "args": ["-I", str(root / "shiori.py"), "run", "serve"],
+                        }
+                    }
+                }
+                async with Client(transport) as client:
+                    page = await client.call_tool("get_task_page", {"issue_key": "DEMO-1234"})
+                    assert page.data["version"] == 1
+                    reply = await client.call_tool("record_checkpoint", {"candidate": checkpoint})
+                    assert reply.data["status"] == "saved" and reply.data["version"] == 2
+                    work = await client.call_tool("get_work_context", {"issue_key": "DEMO-1234"})
+                    assert (
+                        work.data["recent_progress"][0]["suggested_next_step"]
+                        == "Recheck the fixture."
+                    )
+
+            asyncio.run(save_checkpoint())
+            assert (
+                json.loads((root / "data/state/task-pages.json").read_bytes())["schema_version"]
+                == 3
+            )
         protected = {path: path.read_bytes() for path in (root / "data/vault").rglob("*.md")}
         protected.update({path: path.read_bytes() for path in (root / "data/state").glob("*.json")})
         protected.update(
@@ -223,15 +271,30 @@ def main():
         assert all(path.read_bytes() == raw for path, raw in protected.items())
         checkpoints = set((root / "recovery").iterdir()) - previous_checkpoints
         assert len(checkpoints) == 1
-        from second_brain.backup import read_bundle
+        from second_brain.backup import read_bundle, restore
 
-        _, saved, _ = read_bundle(next(iter(checkpoints)) / "memory", "work")
+        bundle = next(iter(checkpoints)) / "memory"
+        _, saved, _ = read_bundle(bundle, "work")
         assert {
             "state/favorites.json",
             "state/task-pages.json",
             "state/agent-log.json",
         } <= saved.keys()
         assert refused.returncode != 0
+        if checkpoint_tools:
+            from second_brain.checkpoints import record_checkpoint
+            from second_brain.task_pages import TaskPages
+
+            recovered = Path(folder) / "checkpoint-restored"
+            assert restore(bundle, recovered)["paused"]
+            brain = Brain(load_config(recovered / "config.json"))
+            assert (brain.state / "task-pages.json").read_bytes() == saved["state/task-pages.json"]
+            assert (
+                TaskPages(brain).read("DEMO-1234")["checkpoint"]["event_id"]
+                == checkpoint["event_id"]
+            )
+            replay = record_checkpoint(brain, checkpoint)
+            assert replay["status"] == "duplicate" and replay["version"] == 2
         print(
             json.dumps(
                 {
@@ -248,7 +311,16 @@ def main():
                         "incompatible-rollback-refused-with-new-sidecars",
                         "failed-rollback-preserves-data-launchers-and-recovery",
                     ]
-                    + (["agent-cli-preview-apply-after-upgrade"] if agent_cli else []),
+                    + (["agent-cli-preview-apply-after-upgrade"] if agent_cli else [])
+                    + (
+                        [
+                            "skill-references-refresh",
+                            "checkpoint-receipt-restored",
+                            "schema-3-rollback-refused",
+                        ]
+                        if checkpoint_tools
+                        else []
+                    ),
                     "data": "synthetic-only",
                     "full_recovery": recovery,
                 }

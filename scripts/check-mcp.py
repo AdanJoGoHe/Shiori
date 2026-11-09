@@ -85,6 +85,7 @@ async def main():
             "get_task_page",
             "save_task_page",
             "list_task_pages",
+            "get_work_context",
         }
         status = await client.call_tool("memory_status", {})
         print("Core status:", str(status)[:1000])

@@ -102,6 +102,7 @@ def test_real_http_roles_shared_store_idempotency_and_revocation(remote):
             for tool, args in [
                 ("get_task_page", {"issue_key": "DEMO-1234"}),
                 ("list_task_pages", {}),
+                ("get_work_context", {"issue_key": "DEMO-1234"}),
                 (
                     "save_task_page",
                     {

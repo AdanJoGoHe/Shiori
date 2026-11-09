@@ -418,6 +418,9 @@ y `save_task_page` permite editarlas con una versión y un evento. Usa la ficha 
 de la incidencia y el Diario para registrar avances y seguir pendientes pequeños. Las fichas
 se guardan en el perfil abierto y su contenido se trata como contexto registrado.
 
+Para retomar una incidencia, `get_work_context` reúne el estado de la ficha, las notas enlazadas
+y el último avance con su próximo paso registrado. [Cómo asociar el Diario a una ficha](task-pages.md#retomar-una-incidencia).
+
 Backup/restauración incluye las fichas y sus marcas; la importación agregativa de notas no incluye
 fichas. Los backups con estos datos requieren una versión que los entienda. El runtime actualizado
 rechaza activar una versión anterior sin soporte de fichas cuando encuentra su almacén.

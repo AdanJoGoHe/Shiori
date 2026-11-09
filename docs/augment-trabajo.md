@@ -107,7 +107,7 @@ personal ni material real del equipo para probar el rechazo de ámbito.
    `search_memory`, `get_context`, `read_memory`, `classify_memory`, `capture_memory`,
    `list_content`, `list_pending_captures`, `memory_status`, `read_journal`, `resume_project`, `read_agent_log`, `read_favorites` y `record_agent_action`.
    Las versiones con [edición MCP de fichas](task-pages.md#edición-con-mcp-local) anuncian también
-   `get_task_page`, `save_task_page` y `list_task_pages`.
+   `get_task_page`, `save_task_page`, `list_task_pages` y `get_work_context`.
 3. Consulta contexto del proyecto ficticio `aceptacion-demo`. Prepara una nota de comando
    con ID `comando-demo`, un evento nuevo y `source_agent: augment-jetbrains`, cuyo cuerpo sea
    «Ejemplo ficticio: git --version muestra la versión de Git». Usa `status: unverified`:

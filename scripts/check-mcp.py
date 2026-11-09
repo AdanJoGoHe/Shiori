@@ -90,7 +90,7 @@ async def main():
         }
         status = await client.call_tool("memory_status", {})
         print("Core status:", str(status)[:1000])
-        result = await client.call_tool("search_memory", {"query": "git"})
+        result = await client.call_tool("search_memory", {"query": "git", "engine": "basic-memory"})
         assert result.data["provider"] == "basic-memory"
         assert result.data["notes"][0]["id"] == "git-version"
         print("Core indexed search: passed")

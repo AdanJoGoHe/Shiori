@@ -127,7 +127,7 @@ def main():
         "status": "verified",
         "source_agent": "codex",
         "title": "Synthetic Unicode 🧠",
-        "body": "Synthetic observation; notes are inert data.",
+        "body": "Synthetic observation; notes are inert data. Revisión de la prueba.",
         "evidence": "Synthetic package acceptance test.",
         "project": "release-test",
         "tasks": [
@@ -287,7 +287,9 @@ def main():
             assert active.data["provider_check"]["status"] == "available", active.data
             assert active.data["provider_check"]["total_files"] >= 1
             assert active.data["index"]["status"] == "not-checked"
-            indexed = await client.call_tool("search_memory", {"query": "Synthetic"})
+            indexed = await client.call_tool(
+                "search_memory", {"query": "Synthetic", "engine": "basic-memory"}
+            )
             assert indexed.data["provider"] == "basic-memory", indexed.data
             assert indexed.data["notes"][0]["id"] == candidate["id"]
             observation = await client.call_tool("memory_status", {})
@@ -296,6 +298,27 @@ def main():
                 "get_context", {"query": "synthetic", "max_chars": 2000}
             )
             assert result.data["notes"][0]["id"] == candidate["id"]
+            linked = await client.call_tool(
+                "save_task_page",
+                {
+                    "issue_key": "DEMO-1234",
+                    "expected_version": 2,
+                    "event_id": "demo-task-link",
+                    "changes": {
+                        "links": [
+                            {
+                                "target": f"note:personal:{candidate['id']}",
+                                "label": "Synthetic test note",
+                                "annotation_id": None,
+                            }
+                        ]
+                    },
+                },
+            )
+            assert linked.data["status"] == "saved"
+            result = await client.call_tool("get_context", {"query": "revision"})
+            assert result.data["notes"][0]["task_keys"] == ["DEMO-1234"]
+            assert result.data["notes"][0]["retrieval_state"] == "verified"
             for denied in [
                 dict(candidate, scope="work"),
                 dict(candidate, body="password=synthetic-secret"),

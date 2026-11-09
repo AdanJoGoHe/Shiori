@@ -45,17 +45,21 @@ def normalized(text):
     )
 
 
-def search_excerpt(text, query, limit=220):
-    terms = normalized(query).split()
-    if not terms:
-        return text[:limit]
+def search_position(text, term):
     folded, offsets = [], []
     for index, char in enumerate(text):
         value = normalized(char)
         folded.append(value)
         offsets.extend([index] * len(value))
-    position = "".join(folded).find(terms[0])
-    start = max(0, offsets[position] - 70) if position >= 0 else 0
+    position = "".join(folded).find(term)
+    return offsets[position] if position >= 0 else -1
+
+
+def search_excerpt(text, query, limit=220):
+    terms = normalized(query).split()
+    if not terms:
+        return text[:limit]
+    start = max(0, search_position(text, terms[0]) - 70)
     return (
         ("…" if start else "")
         + text[start : start + limit]

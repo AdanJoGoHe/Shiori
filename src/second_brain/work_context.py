@@ -64,12 +64,9 @@ def linked_notes(brain, page, now):
                     unavailable += 1
                     continue
                 note["revision"] = hashlib.sha256(content.encode()).hexdigest()
-                if note["status"] in {"obsolete", "superseded"}:
-                    note["warnings"].append("historical-note")
+                if note["retrieval_state"] == "historical":
                     note["excerpt"] = ""
                     note["excerpt_truncated"] = False
-                if note["age_days"] is not None and note["age_days"] >= 90:
-                    note["warnings"].append("verification-at-least-90-days-old")
                 notes.append(note)
     return notes, unavailable, len(ids) > 5
 
@@ -177,6 +174,7 @@ def build_work_context(brain, issue_key, max_chars=10000, include=None):
                     "updated_at",
                     "last_verified_at",
                     "age_days",
+                    "retrieval_state",
                     "revision",
                     "warnings",
                 )

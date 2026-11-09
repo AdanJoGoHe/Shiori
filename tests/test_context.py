@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import sqlite3
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -62,6 +64,8 @@ def test_serialized_budget_limits_and_query_relevant_excerpts(brain):
 
 
 def test_context_uses_one_validated_snapshot_and_does_not_write(brain, monkeypatch):
+    from second_brain.local_search import parse_note
+
     brain.capture(event(body="context fact"))
     before = {
         p: p.read_bytes()
@@ -69,22 +73,73 @@ def test_context_uses_one_validated_snapshot_and_does_not_write(brain, monkeypat
         for p in root.rglob("*")
         if p.is_file()
     }
-    read = brain.read
     calls = []
 
-    def once(note_id):
+    def once(content, note_id, scope):
         calls.append(note_id)
         assert calls.count(note_id) == 1
-        return read(note_id)
+        return parse_note(content, note_id, scope)
 
-    monkeypatch.setattr(brain, "read", once)
+    monkeypatch.setattr("second_brain.local_search.parse_note", once)
     assert build_context(brain, "context")["notes"][0]["id"] == "git-version"
+    assert build_context(brain, "fact")["notes"][0]["id"] == "git-version"
+    assert calls == ["git-version"]
     assert before == {
         p: p.read_bytes()
         for root in [brain.vault, brain.state]
         for p in root.rglob("*")
         if p.is_file()
     }
+
+
+@pytest.mark.parametrize(
+    "query, exact, similar",
+    [
+        ("192.0.2.10", "Connect to 192.0.2.10.", "Old gateway 192.0.2.100."),
+        ("C:/demo/run.txt", "Read C:/demo/run.txt.", "Backup C:/demo/run.txt.bak."),
+        (
+            "kubectl get pods -n demo",
+            "Run kubectl get pods -n demo.",
+            "Pods demo: kubectl get events -n other.",
+        ),
+    ],
+)
+def test_literal_commands_ips_and_paths_precede_partial_matches(brain, query, exact, similar):
+    brain.capture(event(id="a-similar", event_id="similar", title="Previous notes", body=similar))
+    brain.capture(event(id="z-target", event_id="target", title="Runbook", body=exact))
+    assert brain.search(query)[0]["id"] == "z-target"
+    first = build_context(brain, query)["notes"][0]
+    assert first["id"] == "z-target" and query in first["excerpt"]
+
+
+def test_full_text_accent_matching_refresh_and_fallback(brain, monkeypatch):
+    result = brain.capture(
+        event(body="Introductory text. " * 100 + "Revisión posterior.", project="one")
+    )
+    note = build_context(brain, "revision", {"project": "one"})["notes"][0]
+    assert "Revisión" in note["excerpt"]
+    assert not build_context(brain, "revision", {"project": "two"})["notes"]
+    assert build_context(brain, '"revision" OR (', {"project": "one"})["notes"]
+
+    path = brain.path(result["path"])
+    stat = path.stat()
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("Revisión", "Medición"), encoding="utf-8"
+    )
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    assert not brain.search("revision")
+    assert brain.search("medicion")[0]["id"] == "git-version"
+    ledger = brain.ledger()
+    ledger["notes"].clear()
+    brain.ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    assert not brain.search("medicion") and path.exists()
+
+    def unavailable(rows):
+        raise sqlite3.OperationalError("no such module: fts5")
+
+    monkeypatch.setattr("second_brain.local_search.build_index", unavailable)
+    brain.capture(event(id="fallback", event_id="fallback-event", body="Local fallback"))
+    assert brain.search("fallback")[0]["id"] == "fallback"
 
 
 def test_future_and_unknown_verification_dates_are_not_freshness_claims(brain):

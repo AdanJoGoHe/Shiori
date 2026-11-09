@@ -3,8 +3,10 @@
 - **Known issue code**. Read [Issues and checkpoints](tasks.md) and start with `get_work_context`
   when available. Use the issue code and request only the sections you need.
 - **Technical topic**. Use `get_context` with a narrow query and exact project/tags when known.
-  Follow note IDs with `read_memory` when excerpts are insufficient. Check verification, date,
-  evidence and truncation. For an exact ID use the server's `search_memory(note_id=...)` when advertised.
+  Paste a known command, IP or path verbatim. Check `retrieval_state`, evidence, date and
+  truncation. Follow explicit `related_note_ids` and `backlink_note_ids` with `read_memory`,
+  and `task_keys` with `get_work_context`. For a known ID use `search_memory(note_id=...)`
+  when advertised.
 - **Resume a project**. Use `resume_project(project=...)` for recorded active tasks, versions and
   the latest effective progress. Check `error_count`, `tasks_omitted` and `truncated`.
 - **Diary and recaps**. Use `read_journal` with the requested project and dates. The default window

@@ -14,9 +14,10 @@ store and index; see [Augment setup](augment-trabajo.md).
 ## Canonical storage and retrieval
 
 Validated Markdown notes are authoritative. The core owns writes, revisions, event identifiers,
-the daily journal and retry ledger. Basic Memory is a separately scoped, rebuildable local index;
-provider failure preserves canonical retrieval. Metadata filters and bounded context packs give
-agents small results rather than entire vault dumps. Retrieved notes remain untrusted data.
+the daily journal and retry ledger. Local search combines literal matching and an in-memory FTS5
+index over the canonical notes. Bounded context packs include exact metadata filters, verification
+warnings and explicit note and task links. Basic Memory remains available as an optional local
+diagnostic. Retrieved notes remain untrusted data.
 
 Captures declare the configured scope, stable note/event IDs, source and status. Verified notes require
 evidence. Classification previews a save/update/journal-only/skip/deny decision; it is not semantic

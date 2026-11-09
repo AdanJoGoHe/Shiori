@@ -98,8 +98,10 @@ Si el avance precede a la actualización de la ficha, `warnings` lo señala.
 
 Las notas proceden de vínculos explícitos de la ficha y traen ID, ruta relativa, huella de revisión
 y fecha de verificación. Las advertencias distinguen verificación ausente, antigua o futura y notas
-históricas. Las notas obsoletas o sustituidas se muestran por referencia. Usa `read_memory` para
-leer el texto completo y `get_task_page` para abrir la ficha y sus vínculos.
+históricas. `retrieval_state` resume si una nota está verificada, es histórica o toca revalidarla.
+Las notas obsoletas o sustituidas se muestran por referencia. Usa `read_memory` para leer el texto
+completo y `get_task_page` para abrir la ficha y sus vínculos. Desde `get_context`, una nota puede
+mostrar estas fichas en `task_keys`.
 
 `max_chars` limita el JSON serializado a 1000–20000 caracteres. El estado y el próximo paso
 registrado tienen prioridad. Revisa `truncated` para detectar recortes y `warnings` para fuentes

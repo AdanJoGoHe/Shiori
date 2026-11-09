@@ -20,6 +20,10 @@ FIELDS = {"key", "title", "body", "status", "project", "tags", "links"}
 EDITABLE = FIELDS - {"key"}
 
 
+class TaskNotFound(ValueError):
+    pass
+
+
 def task_key(value):
     key = safe_text(value, 40).strip().upper()
     if not KEY.fullmatch(key):
@@ -199,7 +203,7 @@ class TaskPages:
         key = task_key(key)
         item = next((row for row in self.export()["items"] if row["key"] == key), None)
         if item is None:
-            raise ValueError("Task does not exist")
+            raise TaskNotFound("Task does not exist")
         return item
 
     def save(self, payload):

@@ -103,7 +103,7 @@ def main():
 
             async def protocol():
                 async with Client(create_server(config)) as client:
-                    assert len(await client.list_tools()) == 16
+                    assert len(await client.list_tools()) == 17
                     assert (
                         await client.call_tool("read_favorites", {"query": "echo"})
                     ).data == expected

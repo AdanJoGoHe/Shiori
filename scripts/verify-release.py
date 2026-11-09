@@ -245,6 +245,7 @@ def main():
                 "get_task_page",
                 "save_task_page",
                 "list_task_pages",
+                "get_work_context",
             }
             task = {
                 "issue_key": "DEMO-1234",
@@ -257,6 +258,9 @@ def main():
             page = await client.call_tool("get_task_page", {"issue_key": "demo-1234"})
             assert page.data["version"] == 1
             assert (await client.call_tool("list_task_pages", {})).data["total"] == 1
+            work = await client.call_tool("get_work_context", {"issue_key": "demo-1234"})
+            assert work.data["found"] and work.data["task"]["version"] == 1
+            assert work.data["recent_progress"] == [] and work.data["notes"] == []
             diary = await client.call_tool("read_journal", {"project": "release-test"})
             assert diary.data["scope"] == "personal" and diary.data["total"] >= 1
             resumed = await client.call_tool("resume_project", {"project": "release-test"})
@@ -402,7 +406,7 @@ def main():
                     "install-uninstall-preserves-settings",
                     "owned-upgrade-preview-apply-retry",
                     "cli-capture-context-dedupe",
-                    "stdio-sixteen-tools",
+                    "stdio-seventeen-tools",
                     "real-basic-memory-indexed-search",
                     "explicit-cli-mcp-provider-status",
                     "scope-secret-denial",

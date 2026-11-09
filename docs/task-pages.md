@@ -74,6 +74,37 @@ Las herramientas operan por stdio en el perfil configurado. Pausar la memoria bl
 ediciones del agente, con las lecturas y los reintentos ya registrados disponibles. La ficha
 concentra el estado actual de la incidencia. El Diario conserva el avance cronológico.
 
+## Retomar una incidencia
+
+En MCP local, llama a `get_work_context` con el código de la ficha:
+
+```json
+{
+  "issue_key": "DEMO-1234",
+  "max_chars": 10000,
+  "include": ["task", "notes", "recent_progress"]
+}
+```
+
+La respuesta reúne el estado y la versión de la ficha, hasta cinco notas enlazadas y hasta tres
+avances de los últimos 31 días locales. `include` permite pedir solo las secciones necesarias.
+Con `found: false` no existe una ficha con ese código en el perfil conectado.
+
+Para asociar una entrada del Diario, usa el proyecto de la ficha y el código en minúsculas como
+`activity`, por ejemplo `demo-1234`. Una entrada sin actividad también puede coincidir por código
+exacto en su título. Una corrección puede heredar la relación del evento corregido dentro de la
+ventana. El primer paso registrado en el último avance se devuelve como `suggested_next_step`.
+Si el avance precede a la actualización de la ficha, `warnings` lo señala.
+
+Las notas proceden de vínculos explícitos de la ficha y traen ID, ruta relativa, huella de revisión
+y fecha de verificación. Las advertencias distinguen verificación ausente, antigua o futura y notas
+históricas. Las notas obsoletas o sustituidas se muestran por referencia. Usa `read_memory` para
+leer el texto completo y `get_task_page` para abrir la ficha y sus vínculos.
+
+`max_chars` limita el JSON serializado a 1000–20000 caracteres. El estado y el próximo paso
+registrado tienen prioridad. Revisa `truncated` para detectar recortes y `warnings` para fuentes
+no disponibles. La consulta es de solo lectura y utiliza el perfil conectado.
+
 ## Persistencia y límites
 
 - Almacén privado `state/task-pages.json` con ámbito explícito. Lecturas y escrituras vuelven

@@ -16,6 +16,55 @@ def excerpt(text, query, limit):
     return value, start > 0 or start + len(value) < len(text)
 
 
+def describe_note(note_id, path, content, query, now):
+    _, frontmatter, body = content.split("---", 2)
+    meta = yaml.safe_load(frontmatter)
+    title = safe_text(meta["title"], 200)
+    body = body.strip()
+    if body.startswith("# " + title + "\n"):
+        body = body[len(title) + 3 :].lstrip()
+    fact, _, evidence = body.partition("\n## Evidence\n")
+    text, text_cut = excerpt(fact, query, 600)
+    evidence_text, evidence_cut = excerpt(evidence.strip(), query, 240)
+    warnings = []
+    if meta["status"] != "verified":
+        warnings.append("not-verified")
+    if not evidence.strip():
+        warnings.append("evidence-missing")
+    age = None
+    verified = meta["last_verified_at"]
+    if verified is not None:
+        try:
+            stamp = datetime.fromisoformat(str(verified))
+            if stamp.utcoffset() is None:
+                raise ValueError("Missing timezone")
+            seconds = (now - stamp).total_seconds()
+            age = max(0, int(seconds // 86400))
+            if seconds < 0:
+                warnings.append("verification-date-in-future")
+        except (ValueError, TypeError):
+            verified = None
+            warnings.append("verification-date-unavailable")
+    else:
+        warnings.append("verification-date-unavailable")
+    return {
+        "id": note_id,
+        "path": path,
+        "title": title,
+        "status": meta["status"],
+        "type": meta["type"],
+        "project": meta.get("project"),
+        "updated_at": str(meta["updated_at"]),
+        "last_verified_at": str(verified) if verified else None,
+        "age_days": age,
+        "excerpt": text,
+        "evidence_excerpt": evidence_text,
+        "excerpt_truncated": text_cut,
+        "evidence_truncated": evidence_cut,
+        "warnings": warnings,
+    }
+
+
 def build_context(brain, query, filters=None, max_chars=8000):
     safe_text(query, 300)
     if type(max_chars) is not int or not 1000 <= max_chars <= 20000:
@@ -31,53 +80,9 @@ def build_context(brain, query, filters=None, max_chars=8000):
         "notes": [],
     }
     for match in matches:
-        content = match["content"]  # Same validated snapshot used for filtering and ranking.
-        _, frontmatter, body = content.split("---", 2)
-        meta = yaml.safe_load(frontmatter)
-        title = safe_text(meta["title"], 200)
-        body = body.strip()
-        if body.startswith("# " + title + "\n"):
-            body = body[len(title) + 3 :].lstrip()
-        fact, _, evidence = body.partition("\n## Evidence\n")
-        text, text_cut = excerpt(fact, query, 600)
-        evidence_text, evidence_cut = excerpt(evidence.strip(), query, 240)
-        warnings = []
-        if meta["status"] != "verified":
-            warnings.append("not-verified")
-        if not evidence.strip():
-            warnings.append("evidence-missing")
-        age = None
-        verified = meta["last_verified_at"]
-        if verified is not None:
-            try:
-                stamp = datetime.fromisoformat(str(verified))
-                if stamp.utcoffset() is None:
-                    raise ValueError("Missing timezone")
-                seconds = (now - stamp).total_seconds()
-                age = max(0, int(seconds // 86400))
-                if seconds < 0:
-                    warnings.append("verification-date-in-future")
-            except (ValueError, TypeError):
-                verified = None
-                warnings.append("verification-date-unavailable")
-        else:
-            warnings.append("verification-date-unavailable")
-        item = {
-            "id": match["id"],
-            "path": match["path"],
-            "title": title,
-            "status": meta["status"],
-            "type": meta["type"],
-            "project": meta.get("project"),
-            "updated_at": str(meta["updated_at"]),
-            "last_verified_at": str(verified) if verified else None,
-            "age_days": age,
-            "excerpt": text,
-            "evidence_excerpt": evidence_text,
-            "excerpt_truncated": text_cut,
-            "evidence_truncated": evidence_cut,
-            "warnings": warnings,
-        }
+        item = describe_note(match["id"], match["path"], match["content"], query, now)
+        text_cut = item["excerpt_truncated"]
+        evidence_cut = item["evidence_truncated"]
         result["truncated"] |= text_cut or evidence_cut
         result["notes"].append(item)
         while len(json.dumps(result, ensure_ascii=False)) > max_chars:

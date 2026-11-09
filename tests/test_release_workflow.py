@@ -30,32 +30,37 @@ def bundle(tmp_path, monkeypatch):
     work_skill = tmp_path / "skills/shiori-work/SKILL.md"
     work_skill.parent.mkdir(parents=True)
     work_skill.write_text("Synthetic work skill\n", encoding="utf-8")
+    reference = work_skill.parent / "references/tasks.md"
+    reference.parent.mkdir()
+    reference.write_text("Synthetic task reference\n", encoding="utf-8")
+    skills = [skill, work_skill, reference]
     installer = tmp_path / "scripts/install-shiori.ps1"
     installer.parent.mkdir()
     installer.write_text("# Synthetic installer\n", encoding="utf-8")
     dist = tmp_path / "dist"
     dist.mkdir()
     with zipfile.ZipFile(dist / "second_brain-1.2.3a4-py3-none-any.whl", "w") as archive:
-        archive.writestr(
-            "second_brain/resources/second-brain/SKILL.md",
-            skill.read_bytes().replace(b"\r\n", b"\n"),
-        )
+        for path in skills:
+            archive.writestr(
+                "second_brain/resources/" + path.relative_to(tmp_path / "skills").as_posix(),
+                path.read_bytes().replace(b"\r\n", b"\n"),
+            )
         archive.writestr(
             "second_brain-1.2.3a4.dist-info/METADATA", "Name: second-brain\nVersion: 1.2.3a4\n"
         )
-        archive.writestr(
-            "second_brain/resources/shiori-work/SKILL.md",
-            work_skill.read_bytes().replace(b"\r\n", b"\n"),
-        )
     with tarfile.open(dist / "second_brain-1.2.3a4.tar.gz", "w:gz") as archive:
-        item = tarfile.TarInfo("second_brain-1.2.3a4/README.md")
-        raw = b"Synthetic source"
-        item.size = len(raw)
-        archive.addfile(item, io.BytesIO(raw))
+        for path in [tmp_path / "README.md", *skills]:
+            item = tarfile.TarInfo("second_brain-1.2.3a4/" + path.relative_to(tmp_path).as_posix())
+            raw = path.read_bytes()
+            item.size = len(raw)
+            archive.addfile(item, io.BytesIO(raw))
 
     def export(command, **kwargs):
         if command == ["git", "ls-files", "-z"]:
-            return SimpleNamespace(stdout="README.md\0")
+            return SimpleNamespace(
+                stdout="README.md\0"
+                + "".join(path.relative_to(tmp_path).as_posix() + "\0" for path in skills)
+            )
         assert command == [
             "uv",
             "export",
@@ -75,6 +80,8 @@ def bundle(tmp_path, monkeypatch):
 def test_rejects_unreviewed_source_archive(bundle, untracked):
     with tarfile.open(bundle / "dist/second_brain-1.2.3a4.tar.gz", "w:gz") as archive:
         name = "unreviewed.md" if untracked else "README.md"
+        for path in sorted((bundle / "skills").rglob("*.md")):
+            archive.add(path, arcname="second_brain-1.2.3a4/" + path.relative_to(bundle).as_posix())
         item = tarfile.TarInfo("second_brain-1.2.3a4/" + name)
         raw = b"Unreviewed synthetic content"
         item.size = len(raw)
@@ -102,15 +109,23 @@ def test_unsupported_versions_rejected(bundle, version):
         release.prepare(bundle)
 
 
-@pytest.mark.parametrize("failure", ["notes", "private-path", "skill"])
+@pytest.mark.parametrize("failure", ["notes", "private-path", "skill", "reference", "unpacked"])
 def test_unreviewed_or_private_artifacts_rejected(bundle, failure):
     if failure == "notes":
         (bundle / "docs/releases/v1.2.3-alpha.4.md").unlink()
     elif failure == "private-path":
         with zipfile.ZipFile(bundle / "dist/second_brain-1.2.3a4-py3-none-any.whl", "a") as archive:
             archive.writestr("second_brain/state/ledger.json", "Synthetic private state")
-    else:
+    elif failure == "skill":
         (bundle / "skills/second-brain/SKILL.md").write_text("Different skill", encoding="utf-8")
+    elif failure == "reference":
+        (bundle / "skills/shiori-work/references/tasks.md").write_text(
+            "Different reference", encoding="utf-8"
+        )
+    else:
+        (bundle / "skills/shiori-work/references/new.md").write_text(
+            "New reference", encoding="utf-8"
+        )
     with pytest.raises(ValueError):
         release.prepare(bundle)
     assert not (bundle / "dist/SHA256SUMS").exists()

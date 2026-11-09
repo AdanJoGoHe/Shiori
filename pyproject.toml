@@ -24,7 +24,7 @@ shiori-runtime = "second_brain.runtime:main"
 
 [tool.hatch.build.targets.wheel.force-include]
 "skills/second-brain/SKILL.md" = "second_brain/resources/second-brain/SKILL.md"
-"skills/shiori-work/SKILL.md" = "second_brain/resources/shiori-work/SKILL.md"
+"skills/shiori-work" = "second_brain/resources/shiori-work"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

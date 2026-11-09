@@ -75,7 +75,9 @@ y `run serve`; no apunta a una carpeta de versión concreta. No añadas una vari
 `SECOND_BRAIN_CONFIG`: la ruta de esta memoria ya va fijada en el lanzador.
 No se modifica un archivo de configuración del plugin suponiendo su formato.
 
-La skill queda en `~/.augment/skills/shiori-work/SKILL.md`. Si Skills aparece como Beta,
+La skill queda en `~/.augment/skills/shiori-work/`. Abre `SKILL.md` para ver qué referencia
+leer según el flujo. `augment --apply` instala también las seis guías de `references/`.
+Si Skills aparece como Beta,
 actívala en los ajustes y comprueba que Augment descubre `shiori-work`; puedes elegir Auto
 en su interfaz. Según la [documentación de Skills de Augment](https://docs.augmentcode.com/jetbrains/using-augment/skills),
 requiere una versión compatible del plugin. La [configuración MCP](https://docs.augmentcode.com/jetbrains/setup-augment/mcp)
@@ -160,10 +162,12 @@ archivos necesarios con límites de tamaño, se verifican hashes y versión y se
 proceso con copia de recuperación y comprobación de compatibilidad. Las descargas temporales
 se eliminan al terminar; las versiones instaladas y las copias de recuperación se conservan.
 
-Si la skill de Augment fue instalada con `augment --apply` y sigue intacta, el updater la
-refresca usando el paquete nuevo. Si la editaste, conserva el archivo y devuelve
-`skill: manual-reconciliation-required`: el programa ya está actualizado y la skill necesita
-revisión. Vuelve a conectar el MCP y abre una conversación nueva después de actualizar.
+Si instalaste la skill con `augment --apply`, el updater refresca la entrada y sus referencias
+desde el paquete nuevo. Si encuentra un archivo editado o ajeno en una ruta que necesita
+actualizar, conserva la skill y devuelve `skill: manual-reconciliation-required`. El programa
+queda actualizado y la skill queda pendiente de revisión. Si se interrumpe el refresco,
+repite `augment --apply` en la misma instalación y carpeta. Vuelve a conectar el MCP y abre
+una conversación nueva después de actualizar.
 
 No requiere login ni lee tokens de GitHub. Usa HTTPS y los assets del repositorio
 `AdanJoGoHe/Shiori`; respeta la configuración de proxy del sistema. Si la red falla o GitHub

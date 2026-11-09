@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from filelock import FileLock
+from filelock import FileLock, Timeout
 from packaging.version import Version
 
 from second_brain import runtime
@@ -180,10 +180,15 @@ def refresh_skill(root):
     try:
         owned = json.loads(runtime.read_file(receipt))
         target = Path(owned["path"])
-        if target.name != "SKILL.md" or target.parent.name != "shiori-work":
+        if (
+            not target.is_absolute()
+            or target.name != "SKILL.md"
+            or target.parent.name != "shiori-work"
+        ):
             raise ValueError("Unexpected owned skill target")
-        if runtime.digest(runtime.read_file(target)) != owned["sha256"]:
-            raise ValueError("Owned skill edited")
+        if not target.is_file():
+            raise ValueError("Owned skill entry point is missing")
+        # The active runtime validates every owned file, including interrupted refreshes.
         active, _ = runtime.manifest(root)
         runtime.command(
             [
@@ -200,7 +205,7 @@ def refresh_skill(root):
             ]
         )
         return "updated"
-    except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired):
+    except (OSError, ValueError, KeyError, TypeError, Timeout, subprocess.TimeoutExpired):
         return "manual-reconciliation-required"
 
 

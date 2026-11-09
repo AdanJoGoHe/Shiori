@@ -110,7 +110,7 @@ def snapshot(brain):
     return {"events": events, "tasks": tasks, "superseded": superseded, "errors": errors}
 
 
-def check_capture(brain, candidate, previous_event=None):
+def check_capture(brain, candidate, previous_event=None, *, dedupe_activity=True):
     """Runs under the capture lock. A pending event fences mutable journal projections."""
     if not any(candidate.get(key) for key in ("activity", "supersedes", "tasks")):
         return None
@@ -132,7 +132,8 @@ def check_capture(brain, candidate, previous_event=None):
         if change["version"] != (old["version"] if old else 0):
             raise JournalConflict("Task version changed; refresh before saving")
     if (
-        not previous_event
+        dedupe_activity
+        and not previous_event
         and candidate.get("mode") == "journal-only"
         and candidate.get("activity")
         and not candidate.get("tasks")

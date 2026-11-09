@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 
 from second_brain.backup import local_path, read_bounded, read_bundle
-from second_brain.core import TYPES, atomic_write
+from second_brain.core import PENDING_CHECKPOINT, TYPES, atomic_write, scoped_path
 
 
 def import_memory(brain, source, apply=False):
@@ -34,6 +34,8 @@ def import_memory(brain, source, apply=False):
         notes[note_id] = (relative, raw, fingerprint, "import-" + fingerprint)
 
     with brain.lock:
+        if apply and scoped_path(brain.state, PENDING_CHECKPOINT).exists():
+            return {"status": "blocked", "reason": "pending-checkpoint"}
         ledger = brain.ledger()
         owned = {
             event_id: (relative, fingerprint)
@@ -98,6 +100,7 @@ def import_memory(brain, source, apply=False):
                 "history",
                 "annotations",
                 "task-pages",
+                "checkpoints",
                 "agent-log",
                 "favorites",
                 "source-events",

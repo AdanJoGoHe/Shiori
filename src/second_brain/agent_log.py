@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from filelock import FileLock
 
 from second_brain.annotations import Conflict
-from second_brain.core import AGENTS, SLUG, atomic_write, safe_text, scoped_path
+from second_brain.core import AGENTS, PENDING_CHECKPOINT, SLUG, atomic_write, safe_text, scoped_path
 from second_brain.task_pages import validate_link
 
 MAX_BYTES = 8_000_000
@@ -241,11 +241,17 @@ class AgentLog:
             coverage="reported",
         )
 
-    def _write(self, data):
-        data["revision"] += 1
-        raw = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    @staticmethod
+    def _serialize(data):
+        raw = json.dumps(
+            dict(data, revision=data["revision"] + 1), ensure_ascii=False, separators=(",", ":")
+        )
         decode(raw)
-        atomic_write(scoped_path(self.brain.state, "agent-log.json"), raw)
+        return raw
+
+    def _write(self, data):
+        atomic_write(scoped_path(self.brain.state, "agent-log.json"), self._serialize(data))
+        data["revision"] += 1
 
     def configure(self, enabled, revision):
         if type(enabled) is not bool or type(revision) is not int:
@@ -255,11 +261,13 @@ class AgentLog:
             if data["revision"] != revision:
                 raise Conflict("Agent log changed; refresh before changing activation")
             if data["enabled"] != enabled:
+                if enabled and scoped_path(self.brain.state, PENDING_CHECKPOINT).exists():
+                    raise Conflict("Retry the pending checkpoint before enabling Agent log")
                 data["enabled"] = enabled
                 self._write(data)
             return dict(enabled=data["enabled"], revision=data["revision"])
 
-    def record(self, candidate):
+    def record(self, candidate, *, checkpoint_at=None):
         fields = validate_event(candidate, self.brain.scope, self.brain.config["timezone"])
         with self.brain.lock, self.lock:
             data = self._read()
@@ -270,9 +278,13 @@ class AgentLog:
                 if any(old[key] != fields[key] for key in FIELDS):
                     raise Conflict("Agent log event ID already has different content")
                 return dict(status="duplicate", event_id=fields["event_id"])
+            if checkpoint_at is None and scoped_path(self.brain.state, PENDING_CHECKPOINT).exists():
+                return dict(status="blocked", reason="pending-checkpoint")
             if not data["enabled"] or (self.brain.state / "paused").exists():
                 return dict(status="blocked", reason="agent-log-disabled-or-memory-paused")
-            data["items"].append({**fields, "recorded_at": self.brain.now().isoformat()})
+            data["items"].append(
+                {**fields, "recorded_at": checkpoint_at or self.brain.now().isoformat()}
+            )
             self._write(data)
             return dict(status="saved", event_id=fields["event_id"])
 

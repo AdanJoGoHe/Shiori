@@ -12,7 +12,16 @@ from second_brain.annotations import Annotations, decode
 from second_brain.task_pages import TaskPages, decode as decode_tasks
 from second_brain.agent_log import AgentLog, decode as decode_log
 from second_brain.favorites import Favorites, decode as decode_favorites
-from second_brain.core import Brain, SLUG, TYPES, atomic_write, scoped_path, validate_note
+from second_brain.checkpoints import decode_plan
+from second_brain.core import (
+    Brain,
+    PENDING_CHECKPOINT,
+    SLUG,
+    TYPES,
+    atomic_write,
+    scoped_path,
+    validate_note,
+)
 
 MAX_BYTES = 64_000_000
 MAX_FILE_BYTES = 8_000_000
@@ -36,6 +45,7 @@ def allowed_file(name):
         "state/task-pages.json",
         "state/agent-log.json",
         "state/favorites.json",
+        f"state/{PENDING_CHECKPOINT}",
     } or (name.startswith("vault/") and VAULT_FILE.fullmatch(name[6:]))
 
 
@@ -117,6 +127,8 @@ def write_files(destination, files, config=None):
 
 
 def validate_scope_files(files, scope):
+    if f"state/{PENDING_CHECKPOINT}" in files:
+        decode_plan(files[f"state/{PENDING_CHECKPOINT}"], scope)
     if (
         "state/favorites.json" in files
         and decode_favorites(files["state/favorites.json"].decode("utf-8"))["scope"] != scope
@@ -193,6 +205,9 @@ def backup(brain, output):
         favorites_path = scoped_path(brain.state, "favorites.json")
         if favorites_path.exists():
             files["state/favorites.json"] = read_bounded(favorites_path)
+        checkpoint_path = scoped_path(brain.state, PENDING_CHECKPOINT)
+        if checkpoint_path.exists():
+            files[f"state/{PENDING_CHECKPOINT}"] = read_bounded(checkpoint_path)
         ledger = validate_files(files)
         validate_scope_files(files, brain.scope)
         for note_id in ledger["notes"]:

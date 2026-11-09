@@ -10,7 +10,14 @@ from filelock import FileLock
 
 from second_brain.annotations import Annotations, Conflict
 from second_brain.catalog import Catalog
-from second_brain.core import SLUG, atomic_write, note_metadata, safe_text, scoped_path
+from second_brain.core import (
+    PENDING_CHECKPOINT,
+    SLUG,
+    atomic_write,
+    note_metadata,
+    safe_text,
+    scoped_path,
+)
 
 KEY = re.compile(r"[A-Z][A-Z0-9]{0,19}-[0-9]{1,10}\Z")
 STATES = {"open", "in-progress", "blocked", "done"}
@@ -21,6 +28,10 @@ EDITABLE = FIELDS - {"key"}
 
 
 class TaskNotFound(ValueError):
+    pass
+
+
+class CheckpointPending(Conflict):
     pass
 
 
@@ -129,11 +140,11 @@ def decode(raw):
     if (
         not isinstance(data, dict)
         or type(data.get("schema_version")) is not int
-        or data["schema_version"] not in {1, 2}
+        or data["schema_version"] not in {1, 2, 3}
         or set(data)
         != (
             {"schema_version", "scope", "items"}
-            | ({"events"} if data["schema_version"] == 2 else set())
+            | ({"events"} if data["schema_version"] >= 2 else set())
         )
         or data["scope"] not in {"personal", "work"}
         or not isinstance(data["items"], list)
@@ -141,12 +152,17 @@ def decode(raw):
     ):
         raise ValueError("Unsupported task store")
     versions = {}
+    checkpoints = {}
     for item in data["items"]:
-        if not isinstance(item, dict) or set(item) != FIELDS | {
+        base = FIELDS | {
             "version",
             "created_at",
             "updated_at",
-        }:
+        }
+        if not isinstance(item, dict) or (
+            set(item) != base
+            and (data["schema_version"] != 3 or set(item) != base | {"checkpoint"})
+        ):
             raise ValueError("Invalid task record")
         if validate_fields({key: item[key] for key in FIELDS}) != {
             key: item[key] for key in FIELDS
@@ -160,6 +176,19 @@ def decode(raw):
         if item["key"] in versions:
             raise ValueError("Duplicate task code")
         versions[item["key"]] = item["version"]
+        if "checkpoint" in item:
+            checkpoint = item["checkpoint"]
+            if (
+                not isinstance(checkpoint, dict)
+                or set(checkpoint) != {"event_id", "at", "summary", "next_step"}
+                or not SLUG.fullmatch(safe_text(checkpoint["event_id"], 100))
+                or datetime.fromisoformat(safe_text(checkpoint["at"], 64)).tzinfo is None
+                or not safe_text(checkpoint["summary"], 1000).strip()
+            ):
+                raise ValueError("Invalid task checkpoint")
+            if checkpoint["next_step"] is not None:
+                safe_text(checkpoint["next_step"], 500)
+            checkpoints[item["key"]] = checkpoint["event_id"]
     events = data.get("events", {})
     if not isinstance(events, dict) or len(events) > MAX_EVENTS:
         raise ValueError("Invalid task events")
@@ -167,7 +196,13 @@ def decode(raw):
         if (
             not SLUG.fullmatch(event_id)
             or not isinstance(event, dict)
-            or set(event) != {"fingerprint", "key", "version"}
+            or (
+                set(event) != {"fingerprint", "key", "version"}
+                and (
+                    data["schema_version"] != 3
+                    or set(event) != {"fingerprint", "key", "version", "checkpoint"}
+                )
+            )
             or not isinstance(event["fingerprint"], str)
             or not re.fullmatch(r"[0-9a-f]{64}", event["fingerprint"])
             or not isinstance(event["key"], str)
@@ -175,6 +210,22 @@ def decode(raw):
             or not 1 <= event["version"] <= versions.get(event["key"], 0)
         ):
             raise ValueError("Invalid task event")
+        if "checkpoint" in event:
+            receipt = event["checkpoint"]
+            if (
+                not isinstance(receipt, dict)
+                or set(receipt) != {"note_id", "agent_log"}
+                or type(receipt["agent_log"]) is not bool
+                or (
+                    receipt["note_id"] is not None
+                    and not SLUG.fullmatch(safe_text(receipt["note_id"], 100))
+                )
+            ):
+                raise ValueError("Invalid checkpoint receipt")
+    for key, event_id in checkpoints.items():
+        receipt = events.get(event_id, {})
+        if receipt.get("key") != key or "checkpoint" not in receipt:
+            raise ValueError("Task checkpoint is missing its receipt")
     return data
 
 
@@ -213,7 +264,9 @@ class TaskPages:
         if type(payload["version"]) is not int or not 0 <= payload["version"] < 1_000_000:
             raise ValueError("Invalid task version")
         marks = Annotations(self.brain)
-        with marks.lock, self.lock:
+        with self.brain.lock, marks.lock, self.lock:
+            if scoped_path(self.brain.state, PENDING_CHECKPOINT).exists():
+                raise CheckpointPending("Retry the pending checkpoint before editing task pages")
             data = self._read()
             old = next((row for row in data["items"] if row["key"] == fields["key"]), None)
             if old and all(old[key] == fields[key] for key in FIELDS):
@@ -247,6 +300,8 @@ class TaskPages:
                 return dict(result, status="duplicate", version=previous["version"])
             if scoped_path(self.brain.state, "paused").exists():
                 return dict(result, status="blocked", reason="paused")
+            if scoped_path(self.brain.state, PENDING_CHECKPOINT).exists():
+                return dict(result, status="blocked", reason="pending-checkpoint")
             old = next((row for row in data["items"] if row["key"] == key), None)
             version = old["version"] if old else 0
             if expected_version != version:
@@ -262,7 +317,7 @@ class TaskPages:
             unchanged = old and all(old[field] == fields[field] for field in FIELDS)
             item = old if unchanged else self._update(data, fields, old, marks)
             events[event_id] = dict(fingerprint=fingerprint, key=key, version=item["version"])
-            self._write(dict(data, schema_version=2, events=events))
+            self._write(dict(data, schema_version=max(2, data["schema_version"]), events=events))
             return dict(
                 result, status="unchanged" if unchanged else "saved", version=item["version"]
             )
@@ -276,6 +331,8 @@ class TaskPages:
             "created_at": old["created_at"] if old else now,
             "updated_at": now,
         }
+        if old and "checkpoint" in old:
+            item["checkpoint"] = old["checkpoint"]
         data["items"] = [row for row in data["items"] if row["key"] != item["key"]] + [item]
         return item
 
@@ -305,10 +362,14 @@ class TaskPages:
                 if (link["annotation_id"], target) not in fragments:
                     raise ValueError("Fragment is not available")
 
-    def _write(self, data):
+    @staticmethod
+    def _serialize(data):
         raw = json.dumps(data, ensure_ascii=False, indent=2)
         decode(raw)
-        atomic_write(scoped_path(self.brain.state, "task-pages.json"), raw)
+        return raw
+
+    def _write(self, data):
+        atomic_write(scoped_path(self.brain.state, "task-pages.json"), self._serialize(data))
 
     def list(self, filters=None, offset=0):
         filters = {} if filters is None else filters
@@ -321,7 +382,11 @@ class TaskPages:
         metadata = note_metadata(filters)
         tags = set(metadata["tags"])
         items = [
-            {key: value for key, value in item.items() if key not in {"body", "links"}}
+            {
+                key: value
+                for key, value in item.items()
+                if key not in {"body", "links", "checkpoint"}
+            }
             for item in self.export()["items"]
             if ("project" not in filters or item["project"] == metadata["project"])
             and ("status" not in filters or item["status"] == filters["status"])
@@ -354,7 +419,13 @@ class TaskPages:
 
     @staticmethod
     def markdown(item):
-        return f"# {item['key']} · {item['title']}\n\n" + item["body"]
+        text = f"# {item['key']} · {item['title']}\n\n" + item["body"]
+        checkpoint = item.get("checkpoint")
+        if checkpoint:
+            text += "\n\n## Último checkpoint\n\n" + checkpoint["summary"]
+            if checkpoint["next_step"]:
+                text += "\n\n**Próximo paso**\n\n" + checkpoint["next_step"]
+        return text
 
     def content(self, key):
         return self.markdown(self.read(key))

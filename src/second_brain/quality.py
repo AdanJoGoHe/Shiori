@@ -6,7 +6,13 @@ from difflib import unified_diff
 
 import yaml
 
-from second_brain.core import render_note, safe_text, validate_candidate
+from second_brain.core import (
+    PENDING_CHECKPOINT,
+    render_note,
+    safe_text,
+    scoped_path,
+    validate_candidate,
+)
 
 
 def note_diff(brain, candidate, current):
@@ -97,6 +103,8 @@ def classify_capture(brain, candidate, assessment):
         return result("skip", "paused")
     # Exact identity only: agents must search related notes before proposing a new ID.
     with brain.lock:
+        if scoped_path(brain.state, PENDING_CHECKPOINT).exists():
+            return result("skip", "pending-checkpoint")
         ledger = brain.ledger()
         previous = ledger["events"].get(prepared["event_id"])
         if previous:

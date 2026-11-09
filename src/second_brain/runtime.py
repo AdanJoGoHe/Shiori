@@ -22,7 +22,14 @@ from packaging.version import Version
 
 from second_brain.annotations import Annotations
 from second_brain.backup import backup
-from second_brain.core import Brain, atomic_write, canonical_root, load_config, scoped_path
+from second_brain.core import (
+    Brain,
+    PENDING_CHECKPOINT,
+    atomic_write,
+    canonical_root,
+    load_config,
+    scoped_path,
+)
 from second_brain.provider import project_name
 from second_brain.store import check_store
 
@@ -188,6 +195,8 @@ def install_version(root, bundle):
 
 
 def probe(root, version):
+    if scoped_path(root, f"data/state/{PENDING_CHECKPOINT}").exists():
+        raise ValueError("Retry the pending checkpoint before changing software")
     if scoped_path(root, "data/state/favorites.json").exists():
         command(
             [

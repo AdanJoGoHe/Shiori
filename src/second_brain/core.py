@@ -26,6 +26,7 @@ TYPES = {
 STATUSES = {"verified", "unverified", "superseded", "obsolete", "draft"}
 AGENTS = {"codex", "claude-code", "augment-jetbrains", "manual"}
 PROGRESS_FIELDS = ("completed", "checks", "decisions", "blockers", "next_steps")
+PENDING_CHECKPOINT = "checkpoint-pending.json"
 SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,99}\Z")
 SECRET = re.compile(
     r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
@@ -436,7 +437,7 @@ class Brain:
             )
         return {"found": path is not None, "id": note_id, "notes": notes}
 
-    def capture(self, candidate):
+    def capture(self, candidate, *, checkpoint=None):
         validate_candidate(candidate, self.scope)
         journal_only = candidate.get("mode", "note") == "journal-only"
         note_id = candidate.get("id", "")
@@ -449,6 +450,8 @@ class Brain:
         with self.lock:
             if (self.state / "paused").exists():
                 return {"status": "skipped", "reason": "paused"}
+            if checkpoint is None and scoped_path(self.state, PENDING_CHECKPOINT).exists():
+                return {"status": "blocked", "reason": "pending-checkpoint"}
             ledger = self.ledger()
             previous_event = ledger["events"].get(event_id)
             if previous_event:
@@ -475,10 +478,12 @@ class Brain:
                         }
             from second_brain.workflow import check_capture, metadata as journal_metadata
 
-            unchanged = check_capture(self, candidate, previous_event)
+            unchanged = check_capture(
+                self, candidate, previous_event, dedupe_activity=checkpoint is None
+            )
             if unchanged:
                 return {"status": "skipped", "reason": "unchanged-activity", "event_id": unchanged}
-            moment = self.now()
+            moment = datetime.fromisoformat(checkpoint["at"]) if checkpoint else self.now()
             if previous_event:
                 moment = datetime.fromisoformat(previous_event["at"])
             timestamp = moment.isoformat(timespec="seconds")
@@ -517,11 +522,12 @@ class Brain:
             marker = f"<!-- event:{event_id} -->"
             if marker not in journal:
                 journal += f"\n{marker}\n<!-- shiori-project:{project or ''} -->\n"
-                data = json.dumps(journal_metadata(candidate), ensure_ascii=True).replace(
-                    ">", "\\u003e"
-                )
+                journal_title = f"Checkpoint {checkpoint['key']}" if checkpoint else title
+                data = json.dumps(
+                    dict(journal_metadata(candidate), title=journal_title), ensure_ascii=True
+                ).replace(">", "\\u003e")
                 journal += f"<!-- shiori-data:{data} -->\n"
-                journal += f"## {moment:%H:%M} — {title}\n\n"
+                journal += f"## {moment:%H:%M} — {journal_title}\n\n"
                 journal += f"- Agent: {agent}\n- Outcome: {summary}\n"
                 if not journal_only:
                     journal += f"- Knowledge: [[{note_id}]]\n"

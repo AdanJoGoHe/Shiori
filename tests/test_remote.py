@@ -104,6 +104,19 @@ def test_real_http_roles_shared_store_idempotency_and_revocation(remote):
                 ("list_task_pages", {}),
                 ("get_work_context", {"issue_key": "DEMO-1234"}),
                 (
+                    "record_checkpoint",
+                    {
+                        "candidate": {
+                            "scope": "personal",
+                            "issue_key": "DEMO-1234",
+                            "expected_version": 1,
+                            "event_id": "remote-checkpoint",
+                            "source_agent": "manual",
+                            "summary": "Synthetic remote checkpoint",
+                        }
+                    },
+                ),
+                (
                     "save_task_page",
                     {
                         "issue_key": "DEMO-1234",

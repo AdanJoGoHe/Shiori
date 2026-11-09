@@ -9,6 +9,7 @@ from pydantic import BeforeValidator
 
 from second_brain.core import Brain, safe_text
 from second_brain.catalog import Catalog
+from second_brain.checkpoints import read_plan, record_checkpoint as save_checkpoint
 from second_brain.context import build_context
 from second_brain.provider import ProviderUnavailable, provider_search, probe_provider
 from second_brain.task_pages import TaskPages
@@ -346,6 +347,22 @@ def create_server(config, *, auth=None, middleware=None):
         return build_work_context(brain, issue_key, max_chars, include)
 
     @server.tool
+    def record_checkpoint(candidate: dict) -> dict:
+        """Commit reviewed issue progress to the task page and the journal, locally.
+
+        Required: scope, issue_key, expected_version from get_task_page, event_id (unique
+        lowercase slug), source_agent and summary. Optional status changes the task state.
+        Optional progress uses capture_memory's lists (completed/checks/decisions/blockers/
+        next_steps). Include knowledge only for a reviewed new note with id, title, type,
+        status, body, and evidence when verified. Existing notes cannot be overwritten here.
+        Optional agent_action uses record_agent_action fields with this event_id, source_agent
+        and the task project. When enabled, Shiori adds task and journal references.
+        After a timeout or pending result, retry the identical candidate and event_id.
+        Check memory_status for the pending event. Use a new event after a version conflict.
+        """
+        return save_checkpoint(brain, candidate)
+
+    @server.tool
     def list_content(
         kind: str | None = None, source: str | None = None, offset: int = 0, limit: int = 25
     ) -> dict:
@@ -364,6 +381,8 @@ def create_server(config, *, auth=None, middleware=None):
 
         Read-only pages of 1–100, ordered by ledger insertion. Retry by submitting the
         identical original candidate to capture_memory with the original event_id.
+        For an event owned by memory_status.pending_checkpoint, retry record_checkpoint
+        with its original checkpoint candidate instead.
         Payloads are not retained; do not reconstruct them from excerpts or hashes.
         """
         return brain.pending_captures(offset, limit)
@@ -376,6 +395,7 @@ def create_server(config, *, auth=None, middleware=None):
         available/unavailable is a past observation, not a live health check. No query/log body.
         Explicit check_provider=true starts a bounded local project-status probe without
         reindexing. It returns provider_check separately; availability does not prove index freshness.
+        Local pending_checkpoint identifies an interrupted checkpoint, without its payload.
         """
         result = {**brain.status(), "index": dict(index)}
         from second_brain.agent_log import AgentLog
@@ -386,6 +406,14 @@ def create_server(config, *, auth=None, middleware=None):
             result["agent_log"] = {"available": False, "reason": "agent-log-unavailable"}
         if auth is not None:
             result.pop("vault", None)
+        else:
+            try:
+                plan = read_plan(brain)
+                result["pending_checkpoint"] = (
+                    {"event_id": plan["event_id"], "issue_key": plan["key"]} if plan else None
+                )
+            except (ValueError, OSError, TypeError, KeyError):
+                result["pending_checkpoint"] = {"status": "unavailable"}
         if check_provider:
             result["provider_check"] = await probe_provider(config)
         return result

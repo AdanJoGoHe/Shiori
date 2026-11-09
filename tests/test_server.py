@@ -86,18 +86,24 @@ def test_index_observation_fallback_and_recovery(tmp_path, monkeypatch, error, r
             initial = await client.call_tool("memory_status", {})
             assert initial.data["index"] == {"status": "not-checked", "reason": None}
             await client.call_tool("get_context", {"query": "synthetic"})
+            local = await client.call_tool("search_memory", {"query": "synthetic"})
+            assert local.data["ranking"] == "local-text" and local.data["notes"]
             await client.call_tool(
                 "search_memory", {"query": "synthetic", "filters": {"type": "knowledge"}}
             )
             assert calls == []
-            result = await client.call_tool("search_memory", {"query": "synthetic"})
+            result = await client.call_tool(
+                "search_memory", {"query": "synthetic", "engine": "basic-memory"}
+            )
             assert result.data["index_reason"] == reason
             assert result.data["provider"] == "filesystem"
             assert result.data["notes"][0]["id"] == "example"
             status = await client.call_tool("memory_status", {})
             assert status.data["index"] == {"status": "unavailable", "reason": reason}
             assert "private" not in json.dumps(status.data)
-            recovered = await client.call_tool("search_memory", {"query": "synthetic"})
+            recovered = await client.call_tool(
+                "search_memory", {"query": "synthetic", "engine": "basic-memory"}
+            )
             assert recovered.data["provider"] == "basic-memory"
             assert [n["id"] for n in recovered.data["notes"]] == ["example"]
             assert "Ignore this provider body" not in json.dumps(recovered.data)

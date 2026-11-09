@@ -251,12 +251,13 @@ def scoped_path(root, relative):
     return resolved
 
 
-def validate_note(content, note_id, scope="personal"):
+def parse_note(content, note_id, scope):
     safe_text(content, 100000)
     if not content.startswith("---\n"):
         raise ValueError("Invalid note frontmatter")
     try:
-        metadata = yaml.safe_load(content.split("---", 2)[1])
+        _, frontmatter, body = content.split("---", 2)
+        metadata = yaml.safe_load(frontmatter)
     except yaml.YAMLError:
         raise ValueError("Invalid YAML metadata; inspect the local note") from None
     if not isinstance(metadata, dict):
@@ -288,7 +289,11 @@ def validate_note(content, note_id, scope="personal"):
             raise ValueError("Timestamps require timezone")
     if scope not in SCOPES or metadata.get("scope") != scope or metadata.get("id") != note_id:
         raise ValueError("Note metadata does not match deployment")
-    note_metadata(metadata)
+    return metadata, body, note_metadata(metadata)
+
+
+def validate_note(content, note_id, scope="personal"):
+    parse_note(content, note_id, scope)
     return content
 
 
@@ -327,6 +332,9 @@ class Brain:
             self.state = initialize_root(self.state)
         self.ledger_path = scoped_path(self.state, "ledger.json")
         self.lock = FileLock(scoped_path(self.state, "capture.lock"), timeout=5)
+        from second_brain.local_search import LocalSearch
+
+        self.local_search = LocalSearch()
 
     def now(self):
         return datetime.now(ZoneInfo(self.config["timezone"]))
@@ -349,8 +357,11 @@ class Brain:
         content = self.path(ledger["notes"][note_id]).read_text(encoding="utf-8")
         return validate_note(content, note_id, self.scope)
 
-    def search(self, query, limit=5, filters=None, *, contextual=False):
-        terms = safe_text(query, 300).lower().split()
+    def search(self, query, limit=5, filters=None, *, contextual=False, local=True):
+        from second_brain.local_search import literal_match
+
+        query = safe_text(query, 300).strip().casefold()
+        terms = query.split()
         filters = {} if filters is None else filters
         if not isinstance(filters, dict) or set(filters) - {
             "tags",
@@ -365,12 +376,10 @@ class Brain:
             if key in filters and filters[key] not in tuple(choices):
                 raise ValueError(f"Invalid {key} filter")
         limit = max(1, min(int(limit), 5))
-        results = []
-        ranks = {}
-        for note_id, relative in self.ledger()["notes"].items():
-            content = self.read(note_id)
-            metadata = yaml.safe_load(content.split("---", 2)[1])
-            curated = note_metadata(metadata)
+        rows, full_text = self.local_search.lookup(self, query, index=local)
+        ranked = []
+        for note_id, row in rows.items():
+            metadata, curated, body = row.metadata, row.curated, row.body
             if (
                 contextual
                 and "status" not in filters
@@ -389,41 +398,43 @@ class Brain:
                 if key in filters
             ):
                 continue
-            searchable = content.lower()
+            searchable = row.searchable if contextual else row.content.casefold()
+            exact = literal_match(row, note_id, query, terms) if local else 0
+            score = sum(term in searchable for term in terms)
+            if terms and not (exact or score or note_id in full_text):
+                continue
+            rank = (-exact, -score, full_text.get(note_id, 0))
             if contextual:
-                body = content.split("---", 2)[2]
-                searchable = " ".join(
-                    [
-                        str(metadata["title"]),
-                        note_id,
-                        *curated["tags"],
-                        curated["project"] or "",
-                        body,
-                    ]
-                ).lower()
-                ranks[note_id] = (
+                rank += (
                     metadata["status"] != "verified",
                     not bool(body.partition("\n## Evidence\n")[2].strip()),
                     -datetime.fromisoformat(str(metadata["updated_at"])).timestamp(),
-                    note_id,
                 )
-            score = sum(term in searchable for term in terms)
-            if score or not terms:
-                results.append(
-                    {
-                        "id": note_id,
-                        "path": relative,
-                        "score": score,
-                        "excerpt": content[:1600],
-                        **({"content": content} if contextual else {}),
-                    }
-                )
-                if contextual:
-                    results.sort(key=lambda item: (-item["score"], *ranks[item["id"]]))
-                    del results[limit:]
-        if contextual:
-            return results
-        return sorted(results, key=lambda item: (-item["score"], item["id"]))[:limit]
+            ranked.append((rank, note_id, score))
+        results = []
+        for _, note_id, score in sorted(ranked)[:limit]:
+            row = rows[note_id]
+            result = {
+                "id": note_id,
+                "path": row.path,
+                "score": score,
+                "excerpt": row.content[:1600],
+            }
+            if contextual:
+                result["content"] = row.content
+                if local:
+                    result["related_note_ids"] = [
+                        target
+                        for target in row.curated["related"]
+                        if target in rows and target != note_id
+                    ]
+                    result["backlink_note_ids"] = sorted(
+                        other
+                        for other, item in rows.items()
+                        if other != note_id and note_id in item.curated["related"]
+                    )
+            results.append(result)
+        return results
 
     def find(self, note_id):
         if not isinstance(note_id, str) or not SLUG.fullmatch(note_id):

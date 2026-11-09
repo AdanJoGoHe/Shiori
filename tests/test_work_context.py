@@ -7,6 +7,7 @@ import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
+from second_brain.context import build_context
 from second_brain.core import Brain
 from second_brain.server import create_server
 from second_brain.task_pages import TaskPages
@@ -120,8 +121,56 @@ def test_linked_notes_use_exact_records_revision_and_freshness(brain):
     assert linked["revision"] == hashlib.sha256(brain.read("linked").encode()).hexdigest()
     assert linked["excerpt"] == "Synthetic knowledge.\n"
     assert linked["age_days"] == 91
+    assert linked["retrieval_state"] == "needs-revalidation"
     assert "verification-at-least-90-days-old" in linked["warnings"]
+    assert historical["retrieval_state"] == "historical"
     assert "historical-note" in historical["warnings"] and "excerpt" not in historical
+
+
+def test_context_returns_bounded_explicit_relationships(brain, tmp_path):
+    other_scope = "personal" if brain.scope == "work" else "work"
+    other = Brain(
+        dict(
+            brain.config,
+            scope=other_scope,
+            vault_path=str(tmp_path / "other-vault"),
+            state_path=str(tmp_path / "other-state"),
+        )
+    )
+    other.capture(event(scope=other_scope, id="elsewhere", event_id="other"))
+    for note_id, kind, related in (
+        ("runbook", "command", ["decision", "runbook", "elsewhere"]),
+        ("decision", "decision", []),
+        ("follow-up", "knowledge", ["runbook"]),
+        ("unlinked", "knowledge", []),
+    ):
+        brain.capture(
+            event(
+                scope=brain.scope,
+                id=note_id,
+                event_id=f"related-{note_id}",
+                title="Synthetic shared topic",
+                type=kind,
+                related=related,
+            )
+        )
+    create_page(brain, links=[note_link(brain, "runbook")])
+    note = build_context(brain, "runbook")["notes"][0]
+    assert note["retrieval_state"] == "verified"
+    assert note["related_note_ids"] == ["decision"]
+    assert note["backlink_note_ids"] == ["follow-up"]
+    assert note["task_keys"] == ["DEMO-1"]
+    decision = build_context(brain, "decision")["notes"][0]
+    assert decision["type"] == "decision" and decision["backlink_note_ids"] == ["runbook"]
+    for budget in (1000, 1500):
+        assert (
+            len(json.dumps(build_context(brain, "runbook", max_chars=budget), ensure_ascii=False))
+            <= budget
+        )
+    remote = build_context(brain, "runbook", local=False)["notes"][0]
+    assert {"related_note_ids", "backlink_note_ids", "task_keys"}.isdisjoint(remote)
+    (brain.state / "task-pages.json").write_text("invalid", encoding="utf-8")
+    assert build_context(brain, "runbook")["warnings"] == ["task-links-unavailable"]
 
 
 def test_budget_keeps_core_state_and_recorded_step_and_reports_incomplete_journal(brain):

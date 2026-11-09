@@ -1,6 +1,7 @@
 # Búsqueda indexada y diagnóstico para agentes
 
-`search_memory` sin filtros intenta usar Basic Memory 0.23.2. El adaptador selecciona el
+`search_memory(query="git", engine="basic-memory")` pide usar Basic Memory 0.23.2 en el MCP
+local sin filtros. La búsqueda normal usa el índice FTS5 de Shiori. El adaptador selecciona el
 ejecutable del entorno Python actual: `basic-memory.exe` en Windows y `basic-memory` en Linux.
 No busca otro ejecutable en PATH ni resuelve el enlace del Python hacia un entorno base.
 Inicialización, comprobación MCP y servidor comparten esta selección y las variables de entorno.
@@ -56,8 +57,8 @@ o `unavailable`; una consulta posterior correcta borra el motivo anterior. Concu
 refleja el último intento que terminó, no necesariamente el último que comenzó.
 
 Es una **observación del proceso**, no un chequeo de salud en vivo. Por defecto, consultar estado no inicia
-el proveedor, y reiniciar el MCP pierde esa observación. Las consultas con filtros y
-`get_context` continúan usando los archivos canónicos y no cambian el estado del índice.
+el proveedor, y reiniciar el MCP pierde esa observación. La búsqueda habitual y
+`get_context` usan los archivos canónicos y no cambian esta observación.
 El `status`/`doctor` de CLI no comparte la observación de un servidor MCP en ejecución.
 
 ## Chequeo explícito del proveedor

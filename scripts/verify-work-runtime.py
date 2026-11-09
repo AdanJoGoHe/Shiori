@@ -288,6 +288,14 @@ def main():
             )
             assert states.data["tasks"][0]["history_total"] == 1
             result = await client.call_tool("search_memory", {"query": "git"})
+            assert result.data["ranking"] == "local-text", result.data
+            assert result.data["notes"][0]["id"] == candidate["id"]
+            result = await client.call_tool("get_context", {"query": "comprobacion"})
+            assert result.data["notes"][0]["id"] == "agent-fixture"
+            assert result.data["notes"][0]["retrieval_state"] == "needs-revalidation"
+            result = await client.call_tool(
+                "search_memory", {"query": "git", "engine": "basic-memory"}
+            )
             assert result.data["provider"] == "basic-memory", result.data
             assert result.data["notes"][0]["id"] == candidate["id"]
             result = await client.call_tool("memory_status", {"check_provider": True})

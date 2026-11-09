@@ -288,6 +288,8 @@ didáctico: que esa consulta no lo muestre es el resultado esperado.
 brain context 'powershell git' --project tutorial --max-chars 4000
 brain search 'git' --project tutorial
 brain search 'git' --project tutorial --tag windows --type command --status verified
+brain context 'git --version'
+brain search --id tutorial-git-version
 brain read tutorial-git-version
 ```
 
@@ -295,10 +297,15 @@ La búsqueda y el contexto devuelven hasta cinco notas por consulta. El límite 
 caracteres del JSON, no tokens. Si necesitas más detalle, lee la nota por su ID.
 `context` excluye obsoletas/sustituidas por defecto; `search` ordinario no lo hace automáticamente.
 
-El proyecto es un filtro exacto, no se deduce del directorio de trabajo. Varias etiquetas exigen
-todas las solicitadas. `verified` significa evidencia registrada, no vigencia garantizada hoy.
-Comprueba fecha y requisitos antes de ejecutar comandos. Contexto y búsqueda MCP con filtros no
-inician el proveedor; la búsqueda MCP sin filtros puede usar Basic Memory y tardar más.
+Pega el comando, la IP o la ruta tal cual para que la coincidencia literal salga primero.
+La búsqueda local también encuentra variantes como `revision` y `revisión`. El proyecto y las
+etiquetas son filtros exactos. Si pasas varias etiquetas, la nota tiene que incluirlas todas.
+
+En `context`, `retrieval_state` distingue notas verificadas, históricas y pendientes de revalidar.
+Para ejecutar un comando, comprueba su evidencia, fecha y requisitos. Las relaciones muestran
+IDs de notas y decisiones enlazadas, notas que enlazan a esta y códigos de fichas que la citan.
+Usa `read` para seguir un ID o `task` para abrir el contexto de una ficha.
+Consulta [Metadatos y búsqueda](metadata-search.md) para ver los campos y límites.
 
 ## Guardar una nota y un avance por CLI
 

@@ -8,7 +8,13 @@ from pathlib import Path
 
 from filelock import FileLock, Timeout
 
-from second_brain.core import atomic_write, canonical_root, load_config, scoped_path
+from second_brain.core import (
+    PENDING_CHECKPOINT,
+    atomic_write,
+    canonical_root,
+    load_config,
+    scoped_path,
+)
 
 FIELDS = ("vault_path", "state_path", "basic_memory_config_dir")
 MAX_CONFIG = 128_000
@@ -135,6 +141,7 @@ def plan(config_path, overrides):
             "task-pages.json",
             "agent-log.json",
             "favorites.json",
+            PENDING_CHECKPOINT,
             "install-manifest.json",
             "paused",
         ]

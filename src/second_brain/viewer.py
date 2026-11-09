@@ -24,7 +24,7 @@ from second_brain.catalog import (
 )
 from second_brain.core import SLUG, safe_text
 from second_brain.workflow import JournalConflict
-from second_brain.task_pages import TaskPages, task_key
+from second_brain.task_pages import CheckpointPending, TaskPages, task_key
 from second_brain.agent_log import AgentLog
 from second_brain.favorites import Favorites
 
@@ -810,6 +810,10 @@ class ViewerHandler(BaseHTTPRequestHandler):
                         "Viewer writes journal-only manual events in its configured scope"
                     )
                 result = brain.capture(payload)
+                if result.get("reason") == "pending-checkpoint":
+                    raise CheckpointPending(
+                        "Retry the pending checkpoint before writing the journal"
+                    )
             elif undo_route:
                 result = self.server.viewer.undo_annotation(payload)
             elif category_route:
@@ -821,6 +825,11 @@ class ViewerHandler(BaseHTTPRequestHandler):
             else:
                 result = self.server.viewer.save_annotation(payload, annotation_id)
             self.reply(201 if self.command == "POST" else 200, result)
+        except CheckpointPending:
+            self.reply(
+                423,
+                {"error": "Hay un checkpoint pendiente. Reinténtalo desde MCP antes de guardar."},
+            )
         except (Conflict, JournalConflict):
             self.reply(409, {"error": "Los datos han cambiado. Actualiza antes de guardar."})
         except (ValueError, OSError, TypeError, KeyError, RecursionError):

@@ -246,6 +246,7 @@ def main():
                 "save_task_page",
                 "list_task_pages",
                 "get_work_context",
+                "record_checkpoint",
             }
             task = {
                 "issue_key": "DEMO-1234",
@@ -261,6 +262,21 @@ def main():
             work = await client.call_tool("get_work_context", {"issue_key": "demo-1234"})
             assert work.data["found"] and work.data["task"]["version"] == 1
             assert work.data["recent_progress"] == [] and work.data["notes"] == []
+            checkpoint = {
+                "scope": "personal",
+                "issue_key": "demo-1234",
+                "event_id": "demo-checkpoint",
+                "expected_version": 1,
+                "source_agent": "manual",
+                "summary": "Synthetic checkpoint verified",
+                "progress": {"next_steps": ["Inspect the fixture"]},
+            }
+            saved = await client.call_tool("record_checkpoint", {"candidate": checkpoint})
+            assert saved.data["status"] == "saved" and saved.data["version"] == 2
+            retry = await client.call_tool("record_checkpoint", {"candidate": checkpoint})
+            assert retry.data["status"] == "duplicate" and retry.data["version"] == 2
+            work = await client.call_tool("get_work_context", {"issue_key": "demo-1234"})
+            assert work.data["recent_progress"][0]["suggested_next_step"] == "Inspect the fixture"
             diary = await client.call_tool("read_journal", {"project": "release-test"})
             assert diary.data["scope"] == "personal" and diary.data["total"] >= 1
             resumed = await client.call_tool("resume_project", {"project": "release-test"})
@@ -406,7 +422,7 @@ def main():
                     "install-uninstall-preserves-settings",
                     "owned-upgrade-preview-apply-retry",
                     "cli-capture-context-dedupe",
-                    "stdio-seventeen-tools",
+                    "stdio-eighteen-tools",
                     "real-basic-memory-indexed-search",
                     "explicit-cli-mcp-provider-status",
                     "scope-secret-denial",

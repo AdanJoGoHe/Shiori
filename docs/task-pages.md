@@ -105,6 +105,51 @@ leer el texto completo y `get_task_page` para abrir la ficha y sus vínculos.
 registrado tienen prioridad. Revisa `truncated` para detectar recortes y `warnings` para fuentes
 no disponibles. La consulta es de solo lectura y utiliza el perfil conectado.
 
+## Guardar un checkpoint
+
+En MCP local, `record_checkpoint` registra un avance en una ficha existente y en el Diario.
+Lee primero la versión de la ficha con `get_task_page`. Ejemplo ficticio:
+
+```json
+{
+  "candidate": {
+    "scope": "work",
+    "issue_key": "DEMO-1234",
+    "expected_version": 3,
+    "event_id": "demo-1234-checkpoint-01",
+    "source_agent": "manual",
+    "summary": "Configuración revisada, validación pendiente.",
+    "status": "in-progress",
+    "progress": {
+      "completed": ["Revisada la configuración de prueba"],
+      "decisions": ["Conservar la comprobación de salida"],
+      "next_steps": ["Ejecutar la validación de prueba"]
+    }
+  }
+}
+```
+
+El Diario conserva todos los campos de `progress`. La ficha muestra el último resumen y el primer
+próximo paso junto a su texto original, y aumenta su versión una vez. `status` es opcional.
+
+- Añade `knowledge` solo si has revisado una nota nueva y reutilizable para el perfil conectado.
+  Usa `id`, `title`, `type`, `status` y `body`, con `evidence` para una nota verificada.
+  Shiori guarda la nota y la enlaza desde la ficha. Un ID de nota ya existente da conflicto.
+- Añade `agent_action` si quieres registrar una acción revisada. Usa el formato de
+  `record_agent_action`, el mismo `event_id` y agente y el proyecto de la ficha. Deja espacio para
+  los dos vínculos a ficha y Diario dentro del límite de seis. La acción se guarda cuando el
+  Agent Log está habilitado. La respuesta indica si se guardó con `agent_log`.
+
+Conserva el candidato original hasta recibir `saved` o `duplicate`. Si se pierde la respuesta
+o aparece `pending`, consulta `memory_status.pending_checkpoint` y reenvía exactamente el
+mismo candidato a `record_checkpoint`. Si la versión está desactualizada, vuelve a leer la
+ficha y usa un ID de evento nuevo para el cambio revisado.
+
+Cada perfil admite una operación pendiente. Mientras se recupera, las nuevas escrituras de
+fichas, capturas y acciones esperan para evitar conflictos. Las lecturas siguen disponibles y
+pueden mostrar el avance antes de que termine la edición de la ficha. La pausa impide continuar
+un checkpoint pendiente hasta reanudar el perfil.
+
 ## Persistencia y límites
 
 - Almacén privado `state/task-pages.json` con ámbito explícito. Lecturas y escrituras vuelven
@@ -134,9 +179,13 @@ su recibo en una única escritura atómica con esquema 2. El recibo conserva el 
 huella y la versión aplicada. El almacén admite hasta 10 000 recibos por perfil, sin expulsar
 eventos antiguos. También se aplica el límite total de 8 MB.
 
-Al cambiar de versión desde el runtime actualizado, si existe el almacén se exige que el intérprete
-candidato pueda leerlo antes de activar el software. Alpha.7 entiende el esquema 1. Una vez
-registrado un evento MCP se requiere una versión compatible con el esquema 2.
+El primer checkpoint confirmado guarda el resumen y su recibo en el esquema 3. El backup incluye
+el recibo y, si existe, la intención pendiente con su huella y fecha. Conserva también el candidato
+original para reanudarlo tras restaurar y quitar la pausa.
+
+El runtime comprueba que la versión candidata pueda leer el almacén antes de activarla. Alpha.7
+entiende el esquema 1. Las ediciones MCP y los checkpoints requieren compatibilidad con sus
+respectivos esquemas. Resuelve el checkpoint pendiente antes de cambiar de versión.
 Una versión incompatible se rechaza conservando la activa. Esto no puede proteger un arranque
 manual con software antiguo ni una copia incompleta de los datos. Conserva un backup compatible.
 

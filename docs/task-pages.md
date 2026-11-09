@@ -38,22 +38,53 @@ shiori --config <config-del-perfil> catalog --kind task
 En una instalación gestionada: `shiori.cmd run task read DEMO-1234 --format text`.
 `list` pagina metadatos de veinte en veinte mediante `--offset`. `read` devuelve la ficha exacta;
 no busca códigos parecidos. El formato texto devuelve el cuerpo Markdown con su título; JSON incluye
-los vínculos y metadatos. El catálogo MCP admite `kind=task`, pero sus resultados siguen siendo
-metadatos. La edición mediante MCP y la captura automática de actividad de una ficha no forman
-parte de esta entrega. Su contenido es contexto no confiable, separado de las notas canónicas y
-de los candidatos a skills aprendidas.
+los vínculos y metadatos. El contenido de las fichas se trata como contexto, separado de las notas
+canónicas y de los candidatos a skills aprendidas.
+
+## Edición con MCP local
+
+- `get_task_page(issue_key)` devuelve la ficha exacta, con su cuerpo, vínculos y versión.
+- `list_task_pages(filters, offset)` devuelve veinte fichas por página, ordenadas por código,
+  con metadatos y versión. Filtra por `status`, `project` y `tags` exactas. Para paginar, pasa
+  `next_offset` de la respuesta como `offset` de la siguiente llamada.
+- `save_task_page(issue_key, expected_version, changes, event_id)` aplica solo los campos enviados.
+  Usa la versión `0` y un título al crear. En una ficha existente, usa la versión leída.
+  `changes` admite `title`, `body`, `status`, `project`, `tags` y `links`. Las listas enviadas
+  reemplazan ese campo completo. Cada vínculo contiene `target`, `label` y `annotation_id`
+  (ID de marca o `null`).
+
+Ejemplo de argumentos para cambiar el estado tras leer la versión `3`:
+
+```json
+{
+  "issue_key": "DEMO-1234",
+  "expected_version": 3,
+  "changes": {"status": "in-progress"},
+  "event_id": "demo-1234-start-01"
+}
+```
+
+Si se pierde la respuesta, reenvía los mismos argumentos con el mismo `event_id`. La respuesta
+`duplicate` indica la versión que se guardó entonces. Para ver la versión actual usa
+`get_task_page`. Ante `version-mismatch`, lee la ficha, revisa el cambio y usa un evento nuevo
+para la edición revisada. Un evento ya registrado con argumentos distintos da `event-id-reused`.
+Un cambio sin diferencias registra el evento con estado `unchanged` y conserva la versión.
+
+Las herramientas operan por stdio en el perfil configurado. Pausar la memoria bloquea nuevas
+ediciones del agente, con las lecturas y los reintentos ya registrados disponibles. La ficha
+concentra el estado actual de la incidencia. El Diario conserva el avance cronológico.
 
 ## Persistencia y límites
 
-- Almacén privado `state/task-pages.json`, esquema 1 y ámbito explícito. Lecturas/escrituras vuelven
+- Almacén privado `state/task-pages.json` con ámbito explícito. Lecturas y escrituras vuelven
   a comprobar la identidad del despliegue; el trabajo no se reenvía al perfil personal.
 - Hasta 1000 fichas y 8 MB por almacén; cuerpo de 12000 caracteres y hasta cuarenta vínculos por
   ficha. Los códigos tienen prefijo alfanumérico, guion y parte numérica; los títulos son obligatorios.
 - Escritura JSON atómica bajo bloqueo y versión optimista por ficha. Reintentar el mismo contenido
   no crea duplicados. Un conflicto conserva el texto del formulario; revisa la ficha actual antes
   de volver a guardarlo. No es sincronización entre servidores.
-- Referencias internas validadas contra el catálogo autorizado y marcas existentes al añadirlas
-  desde el visor. En cada apertura se vuelve a comprobar la disponibilidad. Las rutas arbitrarias,
+- Referencias internas validadas contra el catálogo autorizado y marcas existentes al añadirlas.
+  El visor vuelve a comprobar su disponibilidad al abrir la ficha. Las rutas arbitrarias,
   esquemas activos y URLs con credenciales no se aceptan; la detección de posibles secretos es
   adicional y no sustituye la revisión del contenido antes de guardarlo.
 - No se guardan imágenes remotas ni se ejecutan comandos. El HTML del Markdown permanece inerte.
@@ -67,9 +98,14 @@ de utilizarlo. Las referencias a documentación necesitan las mismas fuentes apr
 el vínculo no copia sus archivos. La importación agregativa de notas declara las fichas fuera
 de su alcance y no las mezcla entre perfiles.
 
-Las versiones anteriores no conocen este archivo ni las marcas sobre contenido de tipo `task`:
-no sirven para restaurar los nuevos backups. Al cambiar de versión desde el runtime actualizado,
-si existe el almacén se exige que el intérprete candidato pueda leerlo antes de activar el software.
+Se siguen leyendo las fichas del esquema 1. El primer evento MCP confirmado guarda la ficha y
+su recibo en una única escritura atómica con esquema 2. El recibo conserva el identificador, la
+huella y la versión aplicada. El almacén admite hasta 10 000 recibos por perfil, sin expulsar
+eventos antiguos. También se aplica el límite total de 8 MB.
+
+Al cambiar de versión desde el runtime actualizado, si existe el almacén se exige que el intérprete
+candidato pueda leerlo antes de activar el software. Alpha.7 entiende el esquema 1. Una vez
+registrado un evento MCP se requiere una versión compatible con el esquema 2.
 Una versión incompatible se rechaza conservando la activa. Esto no puede proteger un arranque
 manual con software antiguo ni una copia incompleta de los datos. Conserva un backup compatible.
 

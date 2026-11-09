@@ -413,10 +413,10 @@ brain catalog --kind task
 ```
 
 `task read` usa el código exacto y, sin `--format text`, devuelve también estado, etiquetas y
-vínculos en JSON. El catálogo MCP puede listar metadatos de tipo `task`; esta entrega no añade
-herramientas MCP para editar fichas. Las notas de una tarea son contexto registrado, no conocimiento
-verificado. Tampoco sustituyen los pendientes con historial del Diario ni se sincronizan con un
-gestor externo. Se guardan en el perfil abierto: trabajo y personal siguen separados.
+vínculos en JSON. En MCP local, `get_task_page` lee por código, `list_task_pages` enumera fichas
+y `save_task_page` permite editarlas con una versión y un evento. Usa la ficha para el estado
+de la incidencia y el Diario para registrar avances y seguir pendientes pequeños. Las fichas
+se guardan en el perfil abierto y su contenido se trata como contexto registrado.
 
 Backup/restauración incluye las fichas y sus marcas; la importación agregativa de notas no incluye
 fichas. Los backups con estos datos requieren una versión que los entienda. El runtime actualizado

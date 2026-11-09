@@ -99,6 +99,21 @@ def test_real_http_roles_shared_store_idempotency_and_revocation(remote):
             assert "capture_memory" not in {t.name for t in await reader.list_tools()}
             assert len(await writer.list_tools()) == 13
             assert len(await reader.list_tools()) == 11  # No cross-client permission cache.
+            for tool, args in [
+                ("get_task_page", {"issue_key": "DEMO-1234"}),
+                ("list_task_pages", {}),
+                (
+                    "save_task_page",
+                    {
+                        "issue_key": "DEMO-1234",
+                        "expected_version": 0,
+                        "changes": {"title": "Synthetic remote edit"},
+                        "event_id": "remote-task",
+                    },
+                ),
+            ]:
+                assert (await writer.call_tool(tool, args, raise_on_error=False)).is_error
+            assert not (brain.state / "task-pages.json").exists()
             before = brain.ledger_path.read_bytes() if brain.ledger_path.exists() else None
             denied = await reader.call_tool(
                 "capture_memory", {"candidate": event()}, raise_on_error=False

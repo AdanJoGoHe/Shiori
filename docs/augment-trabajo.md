@@ -103,9 +103,11 @@ personal ni material real del equipo para probar el rechazo de ámbito.
    (`shiori.cmd status`). Conserva allí los errores detallados y rutas; al repositorio lleva
    solo versiones y resultados genéricos.
 2. Conecta `shiori_work`, abre una conversación nueva y comprueba que descubre `shiori-work`.
-   Pide `memory_status`: debe decir `scope: work`. Confirma estas trece herramientas:
+   Pide `memory_status` y confirma que dice `scope: work`. Alpha.7 anuncia estas trece herramientas:
    `search_memory`, `get_context`, `read_memory`, `classify_memory`, `capture_memory`,
    `list_content`, `list_pending_captures`, `memory_status`, `read_journal`, `resume_project`, `read_agent_log`, `read_favorites` y `record_agent_action`.
+   Las versiones con [edición MCP de fichas](task-pages.md#edición-con-mcp-local) anuncian también
+   `get_task_page`, `save_task_page` y `list_task_pages`.
 3. Consulta contexto del proyecto ficticio `aceptacion-demo`. Prepara una nota de comando
    con ID `comando-demo`, un evento nuevo y `source_agent: augment-jetbrains`, cuyo cuerpo sea
    «Ejemplo ficticio: git --version muestra la versión de Git». Usa `status: unverified`:

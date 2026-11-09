@@ -107,6 +107,7 @@ No sobrescribas la entrada gestionada actual para ensayar la fase remota.
   `record_agent_action` se anuncian solo a escritores; llamarlas con credencial de lectura
   también se rechaza. Agent log requiere además activación local explícita del perfil.
   Una herramienta futura queda denegada hasta revisión explícita.
+  `get_task_page`, `save_task_page` y `list_task_pages` están disponibles en MCP local por stdio.
 - Los permisos no aíslan documentos por equipo: cada lector ve la memoria personal autorizada
   del mismo despliegue. No hay múltiples usuarios/tenants ni memoria corporativa habilitada.
 - El registro se vuelve a leer en cada petición. Eliminar una entrada, cambiar su hash/permiso o

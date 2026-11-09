@@ -1,11 +1,16 @@
+import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from fastmcp import Client
+from fastmcp.exceptions import ToolError
 
 from second_brain.annotations import Conflict
 from second_brain.backup import backup, restore
 from second_brain.catalog import Catalog
 from second_brain.core import Brain, load_config
+from second_brain.server import create_server
 from second_brain.task_pages import TaskPages
 from second_brain.viewer import Viewer
 
@@ -255,3 +260,153 @@ def test_task_catalog_snapshot_stays_consistent_and_metadata_excludes_bodies(bra
     assert "echo demo" in old_body and "Contexto nuevo" not in old_body
     assert "Contexto nuevo" in catalog.read(content_id)[1]
     assert "Contexto nuevo" not in json.dumps(catalog.list("task"))
+
+
+def test_task_mcp_partial_edit_replay_and_pause(brain):
+    store = TaskPages(brain)
+    store.save(payload())
+
+    async def exercise():
+        async with Client(create_server(brain.config)) as client:
+
+            async def call(tool, **args):
+                return (await client.call_tool(tool, args)).data
+
+            key = "demo-1234"
+            request = dict(issue_key=key, expected_version=1, changes={"status": "blocked"})
+            assert (await call("get_task_page", issue_key=key))["version"] == 1
+            first = await call("save_task_page", **request, event_id="demo-update")
+            assert (first["status"], first["version"]) == ("saved", 2)
+            page = store.read(key)
+            assert page["project"] == "demo" and page["body"] == payload()["body"]
+            assert page["tags"] == ["ejemplo"]
+            latest = store.save(
+                {**payload(), "title": "New title", "status": "blocked", "version": 2}
+            )
+            assert latest["version"] == 3
+
+            brain.pause(True)
+            retry = await call("save_task_page", **request, event_id="demo-update")
+            assert (retry["status"], retry["version"]) == ("duplicate", 2)
+            rejected = await call(
+                "save_task_page",
+                **{**request, "changes": {"status": "done"}},
+                event_id="demo-update",
+            )
+            assert rejected["reason"] == "event-id-reused"
+            blocked = await call("save_task_page", **request, event_id="paused-edit")
+            assert blocked["reason"] == "paused"
+            brain.pause(False)
+
+            stale = await call("save_task_page", **request, event_id="stale-edit")
+            assert (stale["reason"], stale["version"]) == ("version-mismatch", 3)
+            unchanged = await call(
+                "save_task_page", **{**request, "expected_version": 3}, event_id="same-content"
+            )
+            assert (unchanged["status"], unchanged["version"]) == ("unchanged", 3)
+            result = await call(
+                "list_task_pages",
+                filters={"project": "demo", "tags": ["EJEMPLO"], "status": "blocked"},
+            )
+            assert result["scope"] == brain.scope and result["total"] == 1
+            assert result["items"][0]["version"] == 3
+            assert not {"body", "links"} & set(result["items"][0])
+            with pytest.raises(ToolError):
+                await call("get_task_page", issue_key="DEMO-123")
+            with pytest.raises(ToolError):
+                await call(
+                    "save_task_page", **{**request, "expected_version": True}, event_id="invalid"
+                )
+            assert store.read(key) == latest
+            assert brain.ledger() == {"events": {}, "notes": {}}
+
+    asyncio.run(exercise())
+
+
+def test_task_agent_links_use_local_catalog_and_preserve_unavailable_links(brain, tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    guide = docs / "guide.md"
+    guide.write_text("# Fictional guide\n\n`echo demo`", encoding="utf-8")
+    brain.config["documentation_roots"] = {"demo": str(docs)}
+    store = TaskPages(brain)
+    linked = store.save(payload())
+    content_id = "documentation:demo:guide.md"
+    viewer = Viewer(brain)
+    content = viewer.content(content_id)
+    start = content["text"].index("echo demo")
+    mark = viewer.annotations.save(
+        content,
+        dict(
+            document_id=content_id,
+            revision=content["revision"],
+            start=start,
+            end=start + 9,
+            quote="echo demo",
+            color="green",
+            tags=["comando"],
+        ),
+    )
+    link = dict(target=content_id, label="Demo fragment", annotation_id=mark["id"])
+    for denied in [
+        {**link, "target": f"task:{brain.scope}:{linked['key']}"},
+        {**link, "target": "note:other:missing", "annotation_id": None},
+        {**link, "target": "https://example.test/?token=hidden", "annotation_id": None},
+    ]:
+        with pytest.raises(ValueError):
+            store.edit("DEMO-2", 0, {"title": "Second task", "links": [denied]}, "demo-create")
+    task_link = dict(
+        target=f"task:{brain.scope}:{linked['key']}", label="Related task", annotation_id=None
+    )
+    changes = {"title": "Second task", "links": [link, task_link]}
+    assert store.edit("DEMO-2", 0, changes, "demo-create")["status"] == "saved"
+    guide.unlink()
+    assert store.edit("DEMO-2", 0, changes, "demo-create")["status"] == "duplicate"
+    assert store.edit("DEMO-2", 1, {"status": "done"}, "demo-done")["version"] == 2
+    assert store.read("DEMO-2")["links"] == [link, task_link]
+
+
+def test_task_events_survive_concurrent_edits_failed_write_and_restore(
+    brain, tmp_path, monkeypatch
+):
+    from second_brain import task_pages
+
+    store = TaskPages(brain)
+    changes = {"title": "Fictional issue"}
+    write = task_pages.atomic_write
+
+    def fail(*_):
+        raise OSError("simulated write failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(task_pages, "atomic_write", fail)
+        with pytest.raises(OSError):
+            store.edit("DEMO-1", 0, changes, "demo-create")
+    assert not (brain.state / "task-pages.json").exists()
+    assert task_pages.atomic_write == write
+    assert store.edit("DEMO-1", 0, changes, "demo-create")["version"] == 1
+
+    def edit(status):
+        return TaskPages(brain).edit("DEMO-1", 1, {"status": status}, f"demo-{status}")
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        outcomes = list(workers.map(edit, ["blocked", "done"]))
+    assert sorted(result["status"] for result in outcomes) == ["conflict", "saved"]
+    assert store.read("DEMO-1")["version"] == 2
+    backup(brain, tmp_path / "bundle")
+    restore(tmp_path / "bundle", tmp_path / "restored")
+    recovered = TaskPages(Brain(load_config(tmp_path / "restored" / "config.json")))
+    assert recovered.export() == store.export()
+    assert recovered.edit("DEMO-1", 0, changes, "demo-create")["version"] == 1
+
+
+def test_task_list_metadata_pagination(brain):
+    store = TaskPages(brain)
+    for index in range(21):
+        store.save({**payload(), "key": f"DEMO-{index:02d}", "tags": []})
+    first = store.list({"tags": []})
+    assert first["total"] == 21 and first["next_offset"] == 20
+    second = store.list({"tags": []}, first["next_offset"])
+    assert [row["key"] for row in second["items"]] == ["DEMO-20"]
+    assert second["next_offset"] is None
+    assert store.list({"project": None})["total"] == 0

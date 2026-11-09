@@ -797,26 +797,6 @@ class ViewerHandler(BaseHTTPRequestHandler):
                 self.reply(201 if result.get("status") == "saved" else 200, result)
                 return
             elif tasks_route:
-                if not isinstance(payload, dict):
-                    raise ValueError("Task payload must be an object")
-                existing = {row["id"] for row in self.server.viewer.catalog.snapshot()["items"]}
-                marks = self.server.viewer.annotations.export()["items"]
-                old_links = []
-                if payload.get("version"):
-                    old_links = self.server.viewer.tasks.read(payload.get("key"))["links"]
-                for link in payload.get("links", []):
-                    if link in old_links:
-                        continue
-                    if not isinstance(link, dict):
-                        raise ValueError("Invalid task link")
-                    target = link.get("target", "")
-                    if urlsplit(target).scheme not in {"http", "https"} and target not in existing:
-                        raise ValueError("Link destination is not available")
-                    if link.get("annotation_id") and not any(
-                        mark["id"] == link["annotation_id"] and mark["document_id"] == target
-                        for mark in marks
-                    ):
-                        raise ValueError("Fragment is not available")
                 result = self.server.viewer.tasks.save(payload)
             elif journal_route:
                 brain = self.server.viewer.catalog.brain

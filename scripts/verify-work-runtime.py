@@ -213,7 +213,7 @@ def main():
             }
         }
         async with Client(transport) as client:
-            assert len(await client.list_tools()) == 13
+            assert len(await client.list_tools()) == 16
             result = await client.call_tool("memory_status", {})
             assert result.data["scope"] == "work"
             result = await client.call_tool(
@@ -428,7 +428,7 @@ def main():
                 "checks": [
                     "package-install",
                     "stable-launcher",
-                    "stdio-thirteen-tools",
+                    "stdio-sixteen-tools",
                     "scope-rejection",
                     "owned-skill",
                     "real-isolated-provider",

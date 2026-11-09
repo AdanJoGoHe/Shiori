@@ -242,7 +242,21 @@ def main():
                 "read_agent_log",
                 "read_favorites",
                 "record_agent_action",
+                "get_task_page",
+                "save_task_page",
+                "list_task_pages",
             }
+            task = {
+                "issue_key": "DEMO-1234",
+                "expected_version": 0,
+                "changes": {"title": "Synthetic MCP task"},
+                "event_id": "demo-task-create",
+            }
+            assert (await client.call_tool("save_task_page", task)).data["status"] == "saved"
+            assert (await client.call_tool("save_task_page", task)).data["status"] == "duplicate"
+            page = await client.call_tool("get_task_page", {"issue_key": "demo-1234"})
+            assert page.data["version"] == 1
+            assert (await client.call_tool("list_task_pages", {})).data["total"] == 1
             diary = await client.call_tool("read_journal", {"project": "release-test"})
             assert diary.data["scope"] == "personal" and diary.data["total"] >= 1
             resumed = await client.call_tool("resume_project", {"project": "release-test"})
@@ -388,7 +402,7 @@ def main():
                     "install-uninstall-preserves-settings",
                     "owned-upgrade-preview-apply-retry",
                     "cli-capture-context-dedupe",
-                    "stdio-thirteen-tools",
+                    "stdio-sixteen-tools",
                     "real-basic-memory-indexed-search",
                     "explicit-cli-mcp-provider-status",
                     "scope-secret-denial",

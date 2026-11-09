@@ -1,14 +1,11 @@
 # Compatibility
 
-## Current status — 2026-10-30
+## Current release line
 
-Published release: [alpha.5](https://github.com/AdanJoGoHe/Shiori/releases/tag/v0.1.0-alpha.5).
-Its dated acceptance is recorded below. The agent CLI changes in
-[PR #18](https://github.com/AdanJoGoHe/Shiori/pull/18), commit `346a0db`, are later source:
-551 local tests passed, one native Windows symlink-privilege skip; 34 agent-CLI tests passed
-against the installed wheel. Personal/work verifiers passed with ten MCP tools and synthetic
-data, including the real managed CMD launcher. This does not establish real Augment acceptance
-or make those changes available through the published alpha.5 package.
+See the [published releases](https://github.com/AdanJoGoHe/Shiori/releases) and
+[alpha.8 notes](releases/v0.1.0-alpha.8.md) for the package, update path and rollback constraints.
+An older runtime must be able to read the current stores before managed rollback can activate it.
+Keep a compatible backup if you need to return to an earlier version after writing new data.
 
 The Windows local work profile is implemented. Actual JetBrains/plugin acceptance remains
 [issue #2](https://github.com/AdanJoGoHe/Shiori/issues/2), with a

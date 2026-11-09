@@ -1,19 +1,16 @@
 # Próximos pasos
 
-La versión publicada es [alpha.5](https://github.com/AdanJoGoHe/Shiori/releases/tag/v0.1.0-alpha.5).
-Incluye diario visual, pendientes y retomar proyectos. El código de `main` añade las mejoras
-del CLI de la [PR #18](https://github.com/AdanJoGoHe/Shiori/pull/18); se prepara alpha.6 para
-distribuirlas. Cambiar el código o preparar un paquete no actualiza una instalación existente.
+Las siete tareas del [roadmap #49](https://github.com/AdanJoGoHe/Shiori/issues/49) están completas.
+Las [notas de alpha.8](releases/v0.1.0-alpha.8.md) recogen las fichas, checkpoints, búsqueda local,
+guías de trabajo y captura opcional del Agent Log. Consulta las
+[releases publicadas](https://github.com/AdanJoGoHe/Shiori/releases) para descargar una versión.
 
 ## Prioridades
 
-1. [Preparar alpha.6](https://github.com/AdanJoGoHe/Shiori/issues/20): comprobar el paquete
-   instalado y la actualización desde alpha.5, con rollback y datos ficticios. Publicarla será
-   un paso explícito después de revisar los resultados.
-2. [Comprobar Augment JetBrains](https://github.com/AdanJoGoHe/Shiori/issues/2): verificar el
+1. [Comprobar Augment JetBrains](https://github.com/AdanJoGoHe/Shiori/issues/2): verificar el
    MCP y la skill dentro de una versión concreta del IDE/plugin. El perfil local de trabajo
    ya existe y mantiene su memoria separada; las pruebas sintéticas no completan esta tarea.
-3. Mantener claras la [compatibilidad](compatibility.md) y las [guías](guia-de-usuario.md):
+2. Mantener claras la [compatibilidad](compatibility.md) y las [guías](guia-de-usuario.md):
    distinguir versiones publicadas, cambios pendientes y pruebas realmente realizadas.
 
 La memoria personal excluye material corporativo. Un perfil de trabajo separado se usa solo

@@ -4,7 +4,7 @@ window.AgentLogUI = (() => {
   const fields = ["log-from", "log-to", "log-project", "log-session", "log-agent", "log-kind", "log-outcome", "log-journal-event", "log-selected", "log-mode"];
   const kinds = {"command-proposed":"Comando propuesto", "command-attempted":"Comando intentado", "command-executed":"Comando ejecutado", check:"Comprobación", "file-changed":"Archivo cambiado", "link-found":"Enlace encontrado", "page-visited":"Página visitada"};
   const outcomes = {success:"Éxito", failure:"Fallo", cancelled:"Cancelado", unknown:"Desconocido"};
-  let sequence = 0, detailSequence = 0, offsets = [0], pageIndex = 0, next = null, enabled = false, revision = 0, timezone, lastQuery;
+  let sequence = 0, detailSequence = 0, offsets = [0], pageIndex = 0, next = null, enabled = false, session, revision = 0, timezone, lastQuery;
   const node = (tag, text, cls) => {const value = document.createElement(tag); if (text !== undefined) value.textContent = text; if (cls) value.className = cls; return value;};
   const message = text => { get("log-message").textContent = text; };
   const button = (text, run) => {const value = node("button",text,"quiet"); value.type="button"; value.onclick=run; return value;};
@@ -102,9 +102,11 @@ window.AgentLogUI = (() => {
       lastQuery=signature;params.set("offset",String(offsets[pageIndex]));
       const data=await api("api/agent-log?"+params);
       if(current!==sequence||state.screen!=="agent-log")return;
-      timezone=data.timezone;revision=data.revision;enabled=data.enabled;
-      get("log-activation").textContent=enabled?"Registro activado en este perfil":"Registro desactivado en este perfil";
-      get("log-toggle").textContent=enabled?"Desactivar registro":"Activar registro";get("log-toggle").disabled=false;
+      timezone=data.timezone;revision=data.revision;enabled=data.enabled;session=data.session_policy;
+      get("log-activation").textContent=session
+        ? "Sesión "+session.id+" · "+(enabled?"Caduca ":"Caducó ")+when(session.expires_at)
+        : enabled?"Registro activado en este perfil":"Registro desactivado en este perfil";
+      get("log-toggle").textContent=session?"Cerrar sesión":enabled?"Desactivar registro":"Activar registro";get("log-toggle").disabled=false;
       get("log-today").setAttribute("aria-pressed",String(get("log-mode").value==="today"));get("log-yesterday").setAttribute("aria-pressed",String(get("log-mode").value==="yesterday"));
       render(data);scopeFilters();message(data.truncated?"Página acotada por presupuesto. Carga la siguiente para continuar.":"");
       if(!get("log-selected").value && data.items.length) get("log-selected").value=data.items[0].event_id;
@@ -128,7 +130,7 @@ window.AgentLogUI = (() => {
     get("log-prev").onclick=()=>{pageIndex--;get("log-selected").value="";load();};
     get("log-toggle").onclick=async()=>{
       get("log-toggle").disabled=true;
-      try {const requested=!enabled;await api("api/agent-log/config","POST",{enabled:requested,revision});await load();message(requested?"Registro activado para recibir acciones informadas en este perfil.":"Registro desactivado. Las acciones anteriores se conservan.");}
+      try {const requested=!enabled&&!session;await api("api/agent-log/config","POST",{enabled:requested,revision});await load();message(requested?"Registro activado para recibir acciones informadas en este perfil.":"Registro desactivado. Las acciones anteriores se conservan.");}
       catch(error){message(error.status===409?"El registro cambió. Actualiza antes de cambiar su activación.":"No se pudo cambiar la activación. Actualiza para reintentar.");}
     };
   });

@@ -25,6 +25,35 @@ Personal y trabajo tienen almacenes separados. La skill registra acciones signif
 la función está disponible y activa; depende de que el agente siga esas instrucciones. No hay
 captura automática de herramientas, conversaciones ni historial del navegador.
 
+### Abrir una sesión con tiempo limitado
+
+Con el registro del perfil desactivado, elige un ID nuevo y permite solo las acciones que te interesan.
+Sin `--apply`, el CLI muestra la política propuesta. Usa `--apply` para empezar.
+
+```powershell
+.\shiori.cmd run agent-log start-session sesion-demo --agent augment-jetbrains --project laboratorio --kind check --kind command-executed --minutes 90 --apply
+.\shiori.cmd run agent-log status
+.\shiori.cmd run agent-log list --session sesion-demo
+```
+
+Comparte el ID con el agente que hará el trabajo. El registro exige coincidencia de sesión,
+agente, proyecto y tipo de acción. Si omites `--project`, admite acciones sin proyecto.
+Si omites `--kind`, admite solo comprobaciones. Puedes repetirlo para elegir varios tipos.
+La duración es de 120 minutos por defecto y admite de 1 a 480. El plazo empieza al aplicar.
+El visor indica cuándo caduca y permite **Cerrar sesión**. También puedes usar
+`agent-log disable --apply`. Después del cierre o de la caducidad, el historial sigue disponible.
+Cierra la sesión anterior antes de abrir otra o activar el registro para todo el perfil.
+
+La sesión solo admite acciones que el agente revisó y envió localmente. Sus identificadores son
+filtros de acciones informadas. Guarda un resumen corto, usa `context: ""` y reserva el comando
+literal para los tipos `command-*`. Los enlaces y visitas requieren una URL revisada sin query ni
+fragmento. Revisa también la ruta y el texto libre para retirar datos sensibles. Las rutas de
+archivo se admiten en cambios de archivo. Los vínculos internos al catálogo o al Diario siguen
+disponibles para cualquier tipo. Ante un bloqueo, revisa la causa antes de preparar otro envío.
+Un checkpoint puede completar después de la caducidad una acción que ya reservó. Cerrar la
+sesión impide guardar esa acción si el registro aún no se había escrito. El checkpoint del
+Diario y de la ficha sigue siendo recuperable.
+
 El visor permite Hoy/Ayer o cualquier periodo histórico de hasta 31 días, proyecto, sesión,
 agente, acción y resultado. El buscador visible consulta resumen, comando, contexto y referencias;
 los términos se combinan con Y, sin distinguir mayúsculas. Los filtros de identidad son exactos.
@@ -41,9 +70,9 @@ que no se trabajara. Favoritos se incorporará con su propio almacenamiento.
 
 ## Registrar desde un agente
 
-MCP anuncia `record_agent_action` y `read_agent_log`. `memory_status.agent_log` permite comprobar
-disponibilidad, activación y alcance sin iniciar el proveedor. Un servidor actualizado anuncia
-trece herramientas; reinicia la conexión para descubrirlas. El CLI configurado es el respaldo.
+MCP anuncia `record_agent_action` y `read_agent_log`. `memory_status.agent_log` muestra
+disponibilidad y activación, y en local incluye `session_policy` si hay una sesión configurada.
+Reconecta MCP después de actualizar para cargar los cambios. El CLI configurado es el respaldo.
 
 Ejemplo ficticio de propuesta, cuyo resultado aún es desconocido:
 
@@ -94,16 +123,20 @@ completo. No consultes toda la sesión en el contexto del agente si basta un fil
 
 ## Conservación y recuperación
 
-Se guarda en `state/agent-log.json`, esquema 1, dentro del despliegue. Límites: 10000 eventos,
+Se guarda en `state/agent-log.json`, dentro del despliegue. Límites: 10000 eventos,
 8 MB por almacén, 12000 bytes por evento, resumen de 600 caracteres, comando de 4000 y contexto
 de 1000. Al llenarse se rechazan escrituras nuevas; no se eliminan eventos silenciosamente.
 La validación detecta patrones comunes de secretos y limita los campos, pero la revisión del
 agente sigue siendo necesaria: no es un detector semántico ni una auditoría inviolable.
 
 Backup/restauración incluye configuración, eventos y correcciones del log; se valida alcance,
-esquema, tamaño y hashes. La restauración crea un destino nuevo y pausado. La importación agregativa
-de notas excluye el log. Una actualización gestionada rechaza una versión que no pueda leer el
-formato presente antes de activarla. No se modifica una instalación real al publicar código.
+esquema, tamaño y hashes. La restauración crea un destino nuevo y pausado. Si había una sesión
+configurada, conserva sus eventos y requiere una nueva activación local tras restaurar.
+La importación agregativa de notas excluye el log.
+
+La sesión configurada usa esquema 2 para impedir que una versión antigua ignore sus restricciones.
+Cierra la sesión para volver al esquema 1 antes de recuperar una versión que solo lea ese formato.
+Una actualización gestionada comprueba que la versión candidata pueda leer los datos presentes.
 
 No hay borrado por antigüedad. Para retirar todo el log, detén sus procesos y elimina manualmente
 solo `state/agent-log.json` del perfil elegido, tras revisar qué necesitas conservar. Esto reinicia

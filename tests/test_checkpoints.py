@@ -115,6 +115,32 @@ def test_optional_knowledge_and_action_respect_profile_and_opt_in(brain):
     assert TaskPages(brain).read("demo-1")["version"] == 2 and read_plan(brain) is None
 
 
+def test_checkpoint_reserves_eligible_session_action_before_expiry(brain, monkeypatch):
+    create_page(brain)
+    log = AgentLog(brain)
+    log.start_session("session-demo", "manual", "demo", ["command-executed"], 1, apply=True)
+    skipped = record_checkpoint(brain, checkpoint(brain, agent_action=reviewed_action(brain)))
+    assert skipped["status"] == "saved" and not skipped["agent_log"]  # Extra context is excluded.
+    request = checkpoint(
+        brain,
+        event_id="checkpoint-with-session",
+        expected_version=2,
+        agent_action=dict(reviewed_action(brain), event_id="checkpoint-with-session", context=""),
+    )
+    with monkeypatch.context() as patch:
+
+        def interrupted(*args, **kwargs):
+            raise OSError("synthetic interruption before logging")
+
+        patch.setattr(AgentLog, "record", interrupted)
+        assert record_checkpoint(brain, request)["status"] == "pending"
+    assert read_plan(brain)["log"] is True
+    brain.now = lambda: NOW + timedelta(minutes=2)
+    assert not log.status()["enabled"]
+    assert record_checkpoint(brain, request)["agent_log"]
+    assert log.status()["total"] == 1
+
+
 def test_recover_after_task_write_failure_without_duplicating_journal_or_log(brain, monkeypatch):
     create_page(brain)
     log = AgentLog(brain)

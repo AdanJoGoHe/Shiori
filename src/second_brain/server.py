@@ -247,12 +247,15 @@ def create_server(config, *, auth=None, middleware=None):
         Review secrets and scope first. Retain the identical candidate/ID for uncertain retries;
         never repeat the underlying action. Corrections append and preserve the original.
         Only reported coverage is supported; this is not a complete independent audit.
-        Activation is a separate explicit local user action; disabled/paused returns blocked.
+        Activation is a separate user action. In a local session match memory_status's
+        session_policy exactly. Keep context empty, include command text only for command
+        kinds, and use URL references without queries/fragments only for link/visit kinds.
+        The API returns blocked if disabled, paused, expired or outside the session policy.
         """
         from second_brain.agent_log import AgentLog
 
         try:
-            return AgentLog(brain).record(candidate)
+            return AgentLog(brain).record(candidate, local=auth is None)
         except (ValueError, OSError, TypeError, KeyError):
             return {"status": "failed", "reason": "agent-log-record-rejected"}
 
@@ -281,7 +284,7 @@ def create_server(config, *, auth=None, middleware=None):
             if query or filters or offset:
                 raise ValueError("Exact event_id cannot combine with query/filters/offset")
             return store.read(event_id)
-        return store.query(query, filters, offset, max_chars)
+        return store.query(query, filters, offset, max_chars, local=auth is None)
 
     @server.tool
     def read_favorites(
@@ -416,7 +419,7 @@ def create_server(config, *, auth=None, middleware=None):
         from second_brain.agent_log import AgentLog
 
         try:
-            result["agent_log"] = {"available": True, **AgentLog(brain).status()}
+            result["agent_log"] = {"available": True, **AgentLog(brain).status(local=auth is None)}
         except (ValueError, OSError, TypeError, KeyError):
             result["agent_log"] = {"available": False, "reason": "agent-log-unavailable"}
         if auth is not None:

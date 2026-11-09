@@ -300,6 +300,46 @@ def main():
             assert result.data["notes"][0]["id"] == candidate["id"]
             result = await client.call_tool("memory_status", {"check_provider": True})
             assert result.data["provider_check"]["status"] == "available", result.data
+            session = (
+                "run",
+                "agent-log",
+                "start-session",
+                "synthetic-session",
+                "--agent",
+                "augment-jetbrains",
+                "--project",
+                "synthetic",
+            )
+            assert cli(*session)["status"] == "preview"
+            assert cli(*session, "--apply")["status"] == "enabled"
+            log = (await client.call_tool("memory_status", {})).data["agent_log"]
+            assert log["session_policy"]["kinds"] == ["check"]
+            action = dict(
+                schema_version=1,
+                scope="work",
+                event_id="synthetic-check",
+                agent="augment-jetbrains",
+                project="synthetic",
+                session="synthetic-session",
+                occurred_at=None,
+                kind="check",
+                outcome="success",
+                summary="Verified the synthetic check",
+                command=None,
+                context="",
+                references=[],
+                corrects=None,
+                correction_reason="",
+                coverage="reported",
+            )
+            saved = await client.call_tool("record_agent_action", {"candidate": action})
+            assert saved.data["status"] == "saved"
+            assert not cli("run", "agent-log", "disable", "--apply")["enabled"]
+            denied = await client.call_tool(
+                "record_agent_action", {"candidate": dict(action, event_id="late-check")}
+            )
+            assert denied.data["status"] == "blocked"
+            assert cli("run", "agent-log", "list", "--session", "synthetic-session")["total"] == 1
             if args.next_release_dir:
                 blocked = subprocess.run(
                     [
@@ -460,6 +500,7 @@ def main():
                     "scope-rejection",
                     "owned-skill",
                     "real-isolated-provider",
+                    "local-agent-log-session-policy",
                     "managed-learning-proposal-activation",
                     "agent-cli-help-exact-search-stdin-diff-note",
                 ],

@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from filelock import FileLock
@@ -54,6 +54,68 @@ def moment(value):
     if parsed.tzinfo is None:
         raise ValueError("Agent log timestamp requires an explicit timezone")
     return parsed
+
+
+def validate_session(session):
+    if (
+        not isinstance(session, dict)
+        or set(session) != {"id", "agent", "project", "kinds", "expires_at"}
+        or not slug(session["id"])
+        or session["agent"] not in tuple(AGENTS)
+        or (session["project"] is not None and not slug(session["project"]))
+        or not isinstance(session["kinds"], list)
+        or not 1 <= len(session["kinds"]) <= len(KINDS)
+        or any(kind not in tuple(KINDS) for kind in session["kinds"])
+        or len(set(session["kinds"])) != len(session["kinds"])
+    ):
+        raise ValueError("Invalid Agent log session policy")
+    moment(session["expires_at"])
+
+
+def activation(data, now, *, local=True):
+    session = data.get("session") if local else None
+    if session is None:
+        return {"enabled": data["enabled"]}
+    return {
+        "enabled": now < moment(session["expires_at"]),
+        "session_policy": session,
+    }
+
+
+def capture_block_reason(data, fields, now, *, local=True):
+    mode = activation(data, now, local=local)
+    if not mode["enabled"]:
+        return (
+            "agent-log-session-expired"
+            if "session_policy" in mode
+            else "agent-log-disabled-or-memory-paused"
+        )
+    session = mode.get("session_policy")
+    if session is None:
+        return None
+    if (
+        fields["session"] != session["id"]
+        or fields["agent"] != session["agent"]
+        or fields["project"] != session["project"]
+        or fields["kind"] not in session["kinds"]
+    ):
+        return "agent-log-session-policy"
+    allowed_refs = {"content", "journal-event"}
+    if fields["kind"] in {"link-found", "page-visited"}:
+        allowed_refs.add("url")
+    if fields["kind"] == "file-changed":
+        allowed_refs.add("file")
+    if (
+        fields["context"]
+        or (fields["command"] is not None and not fields["kind"].startswith("command-"))
+        or any(
+            ref["kind"] not in allowed_refs
+            or (ref["kind"] == "url" and ("?" in ref["target"] or "#" in ref["target"]))
+            for ref in fields["references"]
+        )
+    ):
+        return "agent-log-session-needs-redaction"
+    return None
 
 
 def log_text(value, maximum):
@@ -176,9 +238,11 @@ def _decode(raw):
     data = json.loads(raw)
     if (
         not isinstance(data, dict)
-        or set(data) != {"schema_version", "scope", "enabled", "revision", "items"}
         or type(data["schema_version"]) is not int
-        or data["schema_version"] != 1
+        or data["schema_version"] not in {1, 2}
+        or set(data)
+        != {"schema_version", "scope", "enabled", "revision", "items"}
+        | ({"session"} if data["schema_version"] == 2 else set())
         or not isinstance(data["scope"], str)
         or data["scope"] not in {"personal", "work"}
         or type(data["enabled"]) is not bool
@@ -188,6 +252,10 @@ def _decode(raw):
         or len(data["items"]) > MAX_EVENTS
     ):
         raise ValueError("Unsupported Agent log store")
+    if data["schema_version"] == 2:
+        if data["enabled"]:
+            raise ValueError("Session and profile-wide Agent log activation are exclusive")
+        validate_session(data["session"])
     seen, corrected = {}, set()
     for item in data["items"]:
         if not isinstance(item, dict) or set(item) != FIELDS | {"recorded_at"}:
@@ -231,11 +299,11 @@ class AgentLog:
         with self.lock:
             return self._read()
 
-    def status(self):
+    def status(self, *, local=True):
         data = self.export()
         return dict(
+            activation(data, self.brain.now(), local=local),
             scope=data["scope"],
-            enabled=data["enabled"],
             revision=data["revision"],
             total=len(data["items"]),
             coverage="reported",
@@ -260,6 +328,13 @@ class AgentLog:
             data = self._read()
             if data["revision"] != revision:
                 raise Conflict("Agent log changed; refresh before changing activation")
+            if "session" in data:
+                if enabled:
+                    raise Conflict("Close the Agent log session before enabling the whole profile")
+                data.pop("session")
+                data["schema_version"] = 1
+                self._write(data)
+                return dict(enabled=False, revision=data["revision"])
             if data["enabled"] != enabled:
                 if enabled and scoped_path(self.brain.state, PENDING_CHECKPOINT).exists():
                     raise Conflict("Retry the pending checkpoint before enabling Agent log")
@@ -267,7 +342,37 @@ class AgentLog:
                 self._write(data)
             return dict(enabled=data["enabled"], revision=data["revision"])
 
-    def record(self, candidate, *, checkpoint_at=None):
+    def start_session(self, session_id, agent, project, kinds, minutes, *, apply=False):
+        if type(minutes) is not int or not 1 <= minutes <= 480:
+            raise ValueError("Agent log session duration must be 1–480 minutes")
+        with self.brain.lock, self.lock:
+            data = self._read()
+            now = self.brain.now().astimezone(timezone.utc)
+            session = dict(
+                id=session_id,
+                agent=agent,
+                project=project,
+                kinds=kinds,
+                expires_at=(now + timedelta(minutes=minutes)).isoformat(),
+            )
+            validate_session(session)
+            if "session" in data or data["enabled"]:
+                raise Conflict("Disable Agent log before opening a new session")
+            if scoped_path(self.brain.state, "paused").exists():
+                raise Conflict("Resume memory before opening an Agent log session")
+            if scoped_path(self.brain.state, PENDING_CHECKPOINT).exists():
+                raise Conflict("Retry the pending checkpoint before opening an Agent log session")
+            if apply:
+                data.update(schema_version=2, session=session)
+                self._write(data)
+            return dict(
+                status="enabled" if apply else "preview",
+                scope=data["scope"],
+                revision=data["revision"],
+                session_policy=session,
+            )
+
+    def record(self, candidate, *, checkpoint_at=None, local=True):
         fields = validate_event(candidate, self.brain.scope, self.brain.config["timezone"])
         with self.brain.lock, self.lock:
             data = self._read()
@@ -280,11 +385,14 @@ class AgentLog:
                 return dict(status="duplicate", event_id=fields["event_id"])
             if checkpoint_at is None and scoped_path(self.brain.state, PENDING_CHECKPOINT).exists():
                 return dict(status="blocked", reason="pending-checkpoint")
-            if not data["enabled"] or (self.brain.state / "paused").exists():
+            if (self.brain.state / "paused").exists():
                 return dict(status="blocked", reason="agent-log-disabled-or-memory-paused")
-            data["items"].append(
-                {**fields, "recorded_at": checkpoint_at or self.brain.now().isoformat()}
-            )
+            now = self.brain.now()
+            if reason := capture_block_reason(
+                data, fields, moment(checkpoint_at) if checkpoint_at else now, local=local
+            ):
+                return dict(status="blocked", reason=reason)
+            data["items"].append({**fields, "recorded_at": checkpoint_at or now.isoformat()})
             self._write(data)
             return dict(status="saved", event_id=fields["event_id"])
 
@@ -300,7 +408,7 @@ class AgentLog:
         )
         return dict(scope=data["scope"], item=item, corrected_by=corrected_by)
 
-    def query(self, query="", filters=None, offset=0, max_chars=8000):
+    def query(self, query="", filters=None, offset=0, max_chars=8000, *, local=True):
         safe_text(query, 300)
         filters = {} if filters is None else filters
         allowed = {
@@ -330,7 +438,8 @@ class AgentLog:
                 not isinstance(filters[key], str) or filters[key] not in choices
             ):
                 raise ValueError("Unsupported Agent log filter value")
-        today = self.brain.now().date()
+        now = self.brain.now()
+        today = now.date()
         try:
             end = date.fromisoformat(filters.get("end_date", today.isoformat()))
             start = date.fromisoformat(
@@ -380,8 +489,8 @@ class AgentLog:
                 selected.append((at, index, row))
         selected.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
         result = dict(
+            activation(data, now, local=local),
             scope=data["scope"],
-            enabled=data["enabled"],
             revision=data["revision"],
             today=str(today),
             timezone=str(zone),

@@ -201,6 +201,10 @@ links/visited pages. Use unknown outcome for uncertain effects and null occurren
 unknown. Coverage is reported, not independently observed. Save curated text, with secrets removed
 before sending; keep raw output, environment dumps and conversations out of the log. Link the
 committed journal event through a journal-event reference instead of duplicating the daily summary.
+When status includes `session_policy`, use it only for work the user assigned to that session.
+Match its ID, agent, project and kinds. Send empty context and keep command text for command kinds.
+Use file references for file changes and remove query strings and fragments from URLs for links
+and visits. Skip new capture when the policy has expired.
 Use `read_agent_log` for action history and `read_journal` for outcomes. The configured CLI fallback
 uses `agent-log status`, `agent-log list`, `agent-log read <event-id>`, or
 `agent-log record --event-file ...` (or `-` for stdin); retain the payload after

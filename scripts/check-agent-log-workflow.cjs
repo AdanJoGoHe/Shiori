@@ -12,6 +12,11 @@ async function main(){
   const get=async(route)=>(await page.request.get(input.url+route)).json();
   await page.goto(input.url+'#agent-log');await page.locator('.log-event').first().waitFor();await idle();
   assert.equal(await page.locator('#view').inputValue(),'agent-log');
+  assert.match(await page.locator('#log-activation').innerText(),input.scope==='work'?/Sesión session-new · Caducó/:/Sesión session-new · Caduca/);
+  await page.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await idle();
+  const closed=await get('api/agent-log');
+  assert.equal(closed.enabled,false);assert.equal(closed.session_policy,undefined);assert.ok(closed.total>0);
+  checks.push('scoped-session-expiry-display-and-close-preserve-history');
   assert.match(await page.locator('#log-activation').innerText(),/desactivado/);
   await page.getByRole('button',{name:'Activar registro',exact:true}).click();await idle();
   assert.match(await page.locator('#log-activation').innerText(),/activado/);

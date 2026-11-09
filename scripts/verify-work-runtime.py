@@ -14,7 +14,8 @@ from fastmcp import Client
 from packaging.version import Version
 
 from second_brain.core import Brain, load_config
-from second_brain.runtime import python_in
+from second_brain.runtime import digest, python_in, work_skill_files
+from second_brain.updater import refresh_skill
 
 
 def main():
@@ -103,6 +104,25 @@ def main():
     assert cli("augment", "--skills-dir", str(skills))["applied"] is False
     assert not skills.exists()
     assert cli("augment", "--skills-dir", str(skills), "--apply")["applied"]
+    installed_skill = skills / "shiori-work"
+    skill_files = work_skill_files()
+    assert len(skill_files) == 7
+    assert all(
+        (installed_skill / name).read_text(encoding="utf-8") == content
+        for name, content in skill_files.items()
+    )
+    references_receipt = root / "augment-references.json"
+    references = json.loads(references_receipt.read_text(encoding="utf-8"))
+    for name in references["files"]:
+        previous_reference = b"# Synthetic previously owned reference\n"
+        (installed_skill / name).write_bytes(previous_reference)
+        references["files"][name] = [digest(previous_reference)]
+    references_receipt.write_text(json.dumps(references), encoding="utf-8")
+    assert refresh_skill(root) == "updated"
+    assert all(
+        (installed_skill / name).read_text(encoding="utf-8") == content
+        for name, content in skill_files.items()
+    )
 
     # Exercise the actual managed launcher; no host configuration or real memory is used.
     launcher = (

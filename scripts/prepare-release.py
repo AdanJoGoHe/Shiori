@@ -38,6 +38,13 @@ def prepare(root):
         "artifacts",
         ".git",
     }
+    canonical = {
+        path.relative_to(root / "skills").as_posix(): path.read_bytes().replace(b"\r\n", b"\n")
+        for skill in ("second-brain", "shiori-work")
+        for path in (root / "skills" / skill).rglob("*.md")
+    }
+    if not {"second-brain/SKILL.md", "shiori-work/SKILL.md"} <= canonical.keys():
+        raise ValueError("Missing canonical skill source")
     with zipfile.ZipFile(dist / wheel) as archive:
         names = archive.namelist()
         if any(
@@ -50,10 +57,12 @@ def prepare(root):
         )
         if metadata["Version"] != version or metadata["Name"] != "second-brain":
             raise ValueError("Wheel metadata does not match project version/name")
-        for skill in ["second-brain", "shiori-work"]:
-            if archive.read(f"second_brain/resources/{skill}/SKILL.md") != (
-                root / f"skills/{skill}/SKILL.md"
-            ).read_bytes().replace(b"\r\n", b"\n"):
+        prefix = "second_brain/resources/"
+        packaged = [name.removeprefix(prefix) for name in names if name.startswith(prefix)]
+        if sorted(packaged) != sorted(canonical):
+            raise ValueError("Wheel skill files differ from canonical source")
+        for name, raw in canonical.items():
+            if archive.read(prefix + name) != raw:
                 raise ValueError("Packaged skill differs from canonical source")
     with tarfile.open(dist / sdist) as archive:
         members = archive.getmembers()
@@ -62,6 +71,9 @@ def prepare(root):
         source_names = [item.name for item in members]
         if any(not name.startswith(f"second_brain-{version}/") for name in source_names):
             raise ValueError("Unexpected source root")
+        source_files = {item.name for item in members if item.isfile()}
+        if any(f"second_brain-{version}/skills/{name}" not in source_files for name in canonical):
+            raise ValueError("Source archive is missing canonical skill files")
         tracked = set(
             subprocess.run(
                 ["git", "ls-files", "-z"], cwd=root, capture_output=True, text=True, check=True

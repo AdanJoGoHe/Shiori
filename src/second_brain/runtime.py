@@ -457,30 +457,99 @@ def run(root, arguments):
         lease.release()
 
 
+SKILL_REFERENCE = r"references/[a-z0-9-]+\.md"
+
+
+def work_skill_files():
+    source = files("second_brain").joinpath("resources", "shiori-work")
+    if not source.is_dir():
+        source = Path(__file__).resolve().parents[2] / "skills/shiori-work"
+    skill = source.joinpath("SKILL.md").read_text(encoding="utf-8")
+    references = dict.fromkeys(re.findall(rf"\]\(({SKILL_REFERENCE})\)", skill))
+    return {
+        **{
+            relative: source.joinpath(*relative.split("/")).read_text(encoding="utf-8")
+            for relative in references
+        },
+        "SKILL.md": skill,  # Make references available before switching the entry point.
+    }
+
+
+def skill_ownership(receipt, target, *, references=False):
+    if not receipt.exists():
+        return {}
+    record = json.loads(read_file(receipt))
+    key = "files" if references else "sha256"
+    if (
+        not isinstance(record, dict)
+        or set(record) != {"path", key}
+        or not isinstance(record["path"], str)
+    ):
+        raise ValueError("Invalid Augment skill receipt")
+    owned = record["files"] if references else {"SKILL.md": [record["sha256"]]}
+    if not isinstance(owned, dict) or any(
+        (name != "SKILL.md" and not re.fullmatch(SKILL_REFERENCE, name))
+        or not isinstance(hashes, list)
+        or not 1 <= len(hashes) <= 2
+        or any(not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha) for sha in hashes)
+        for name, hashes in owned.items()
+    ):
+        raise ValueError("Invalid Augment skill receipt")
+    return owned if record["path"] == str(target) else {}
+
+
+def install_work_skill(root, target, apply):
+    receipt = scoped_path(root, "augment-skill.json")
+    assets = scoped_path(root, "augment-references.json")
+    owned = skill_ownership(receipt, target)
+    references = skill_ownership(assets, target, references=True)
+    desired = work_skill_files()
+    plan, final, writes = {}, {}, {}
+    for name, content in desired.items():
+        path = scoped_path(target.parent, name)
+        current = digest(read_file(path)) if path.exists() else None
+        allowed = owned.get(name, []) + references.get(name, [])
+        if current is not None and current not in allowed:
+            raise ValueError(
+                f"Existing Augment skill is unowned or edited ({name}); reconcile manually"
+            )
+        sha = digest(content.encode())
+        if current != sha:
+            writes[path] = (current, content)
+        plan[name] = [sha] if current in {None, sha} else [current, sha]
+        if name != "SKILL.md":
+            final[name] = [sha]
+    retained = {name: hashes for name, hashes in references.items() if name != "SKILL.md"}
+    committed = {**retained, **final}
+    expected = [plan["SKILL.md"][-1]]
+    if apply and (writes or owned.get("SKILL.md") != expected or committed != references):
+        # The intent accepts either owned version of each file after an interrupted refresh.
+        atomic_write(assets, json.dumps({"path": str(target), "files": {**references, **plan}}))
+        for path, (previous, content) in writes.items():
+            if (digest(read_file(path)) if path.exists() else None) != previous:
+                raise ValueError("Augment skill changed during refresh; reconcile manually")
+            atomic_write(path, content)
+        atomic_write(receipt, json.dumps({"path": str(target), "sha256": expected[0]}))
+        # Keep the legacy receipt for older runtimes. The reference receipt survives their refresh.
+        atomic_write(assets, json.dumps({"path": str(target), "files": committed}))
+
+
 def augment(root, skills_dir, apply=False):
     manifest(root)
-    target = scoped_path(canonical_root(skills_dir), "shiori-work/SKILL.md")
-    source = files("second_brain").joinpath("resources/shiori-work/SKILL.md")
-    if not source.is_file():
-        source = Path(__file__).resolve().parents[2] / "skills/shiori-work/SKILL.md"
-    skill = source.read_text(encoding="utf-8")
-    receipt = root / "augment-skill.json"
-    if target.exists():
-        owned = json.loads(read_file(receipt)) if receipt.exists() else {}
-        if owned.get("path") != str(target) or owned.get("sha256") != digest(read_file(target)):
-            raise ValueError("Existing Augment skill is unowned or edited; reconcile manually")
-    result = {
+    skills_dir = canonical_root(skills_dir)
+    target = scoped_path(skills_dir, "shiori-work/SKILL.md")
+    with (
+        FileLock(scoped_path(skills_dir, ".shiori-work.lock"), timeout=5)
+        if apply
+        else nullcontext()
+    ):
+        install_work_skill(root, target, apply)
+    return {
         "name": "shiori_work",
         "command": f'"{sys._base_executable}" -I "{root / "shiori.py"}" run serve',
         "skill": str(target),
-        "applied": False,
+        "applied": apply,
     }
-    if apply:
-        # A receipt precedes the owned write; it cannot authorize overwriting an edited file.
-        atomic_write(receipt, json.dumps({"path": str(target), "sha256": digest(skill.encode())}))
-        atomic_write(target, skill)
-        result["applied"] = True
-    return result
 
 
 def main():

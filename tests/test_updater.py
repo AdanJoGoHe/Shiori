@@ -154,20 +154,29 @@ def test_invalid_assets_never_activate(managed, monkeypatch, tmp_path, damage):
     assert not list(root.glob(".update-*"))
 
 
-def test_owned_skill_refresh_preserves_edited_file(managed, tmp_path):
+def test_owned_skill_refresh_preserves_edited_file(managed, tmp_path, monkeypatch):
     root, _, calls = managed
     skills = tmp_path / "home/.augment/skills"
     result = runtime.augment(root, skills, apply=True)
+
+    def command(args):
+        calls.append(args)
+        runtime.augment(root, args[args.index("--skills-dir") + 1], apply=True)
+
+    monkeypatch.setattr(runtime, "command", command)
     assert updater.refresh_skill(root) == "updated"
     assert "augment" in calls[-1]
-    target = Path(result["skill"])
-    target.write_text("user edit")
+    target = Path(result["skill"]).parent / "references/tasks.md"
+    target.write_text("user edit", encoding="utf-8")
     count = len(calls)
     assert updater.refresh_skill(root) == "manual-reconciliation-required"
-    assert target.read_text() == "user edit" and len(calls) == count
+    assert target.read_text() == "user edit" and len(calls) == count + 1
+    Path(result["skill"]).unlink()
+    assert updater.refresh_skill(root) == "manual-reconciliation-required"
+    assert len(calls) == count + 1 and not Path(result["skill"]).exists()
     (root / "augment-skill.json").write_text("[]")
     assert updater.refresh_skill(root) == "manual-reconciliation-required"
-    assert target.read_text() == "user edit" and len(calls) == count
+    assert target.read_text() == "user edit" and len(calls) == count + 1
 
 
 @pytest.mark.parametrize(

@@ -206,12 +206,77 @@ def test_augment_setup_is_explicit_and_never_overwrites_foreign_or_edited_skill(
     assert result["name"] == "shiori_work" and not skills_dir.exists()
     result = runtime.augment(root, skills_dir, apply=True)
     target = Path(result["skill"])
-    assert target.is_file() and '"scope": "work"' in target.read_text()
+    assert target.is_file() and "scope: work" in target.read_text()
+    for name, content in runtime.work_skill_files().items():
+        assert (target.parent / name).read_text(encoding="utf-8") == content
     runtime.augment(root, skills_dir, apply=True)
     target.write_text("edited")
     with pytest.raises(ValueError, match="unowned or edited"):
         runtime.augment(root, skills_dir, apply=True)
     assert target.read_text() == "edited"
+
+
+def test_augment_migrates_legacy_receipt_and_retries_interrupted_refresh(
+    managed, tmp_path, monkeypatch
+):
+    root, _, _ = managed
+    skills = tmp_path / "skills"
+    target = skills / "shiori-work/SKILL.md"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"Legacy monolith\n")
+    receipt = root / "augment-skill.json"
+    receipt.write_text(
+        json.dumps({"path": str(target), "sha256": runtime.digest(target.read_bytes())}),
+        encoding="utf-8",
+    )
+    write = runtime.atomic_write
+
+    def fail_after_switch(path, content):
+        if path == receipt:
+            raise OSError("synthetic interruption before legacy receipt")
+        write(path, content)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(runtime, "atomic_write", fail_after_switch)
+        with pytest.raises(OSError):
+            runtime.augment(root, skills, apply=True)
+    assert "scope: work" in target.read_text(encoding="utf-8")
+    assert runtime.augment(root, skills, apply=True)["applied"]
+
+    # An older runtime updates only the entry point and its legacy receipt during rollback.
+    target.write_bytes(b"Legacy monolith\n")
+    receipt.write_text(
+        json.dumps({"path": str(target), "sha256": runtime.digest(target.read_bytes())}),
+        encoding="utf-8",
+    )
+    assert runtime.augment(root, skills, apply=True)["applied"]
+    for name, content in runtime.work_skill_files().items():
+        assert (target.parent / name).read_text(encoding="utf-8") == content
+
+
+def test_augment_checks_all_references_before_refresh(managed, tmp_path, monkeypatch):
+    root, _, _ = managed
+    skills = tmp_path / "skills"
+    target = skills / "shiori-work"
+    ref = target / "references/tasks.md"
+    ref.parent.mkdir(parents=True)
+    ref.write_text("Unowned content", encoding="utf-8")
+    with pytest.raises(ValueError, match="unowned or edited"):
+        runtime.augment(root, skills, apply=True)
+    assert not (target / "SKILL.md").exists() and ref.read_text() == "Unowned content"
+    ref.unlink()
+    runtime.augment(root, skills, apply=True)
+    desired = runtime.work_skill_files()
+    monkeypatch.setattr(
+        runtime,
+        "work_skill_files",
+        lambda: {name: value + "\nSynthetic new version\n" for name, value in desired.items()},
+    )
+    ref.write_text("Edited reference", encoding="utf-8")
+    before = {p: p.read_bytes() for p in target.rglob("*") if p.is_file()}
+    with pytest.raises(ValueError, match="unowned or edited"):
+        runtime.augment(root, skills, apply=True)
+    assert before == {p: p.read_bytes() for p in target.rglob("*") if p.is_file()}
 
 
 def test_managed_cli_cannot_override_config(managed):

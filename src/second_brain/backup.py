@@ -274,6 +274,16 @@ def restore(source, destination):
     ):
         raise ValueError("Restore requires a new destination separate from the backup")
     manifest, files, ledger = read_bundle(source)
+    log_name = "state/agent-log.json"
+    if log_name in files:
+        log = decode_log(files[log_name].decode("utf-8"))
+        if "session" in log:
+            log.pop("session")
+            log["schema_version"] = 1
+            # A restored profile needs a fresh local opt-in.
+            files[log_name] = json.dumps(log, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
     config = {
         "schema_version": 1,
         "scope": manifest["scope"],

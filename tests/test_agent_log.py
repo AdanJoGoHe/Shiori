@@ -5,7 +5,7 @@ import subprocess
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -228,6 +228,68 @@ def test_store_limit_never_evicts_and_backup_restores_paused(brain, monkeypatch,
         AgentLog(restored).record({**action(), "event_id": "restored-action"})["status"]
         == "blocked"
     )
+
+
+def test_session_opt_in_expires_and_keeps_history(brain, monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setattr(brain, "now", lambda: now)
+    log = AgentLog(brain)
+    settings = ("session-demo", "manual", "demo", ["check", "page-visited"], 1)
+    assert log.start_session(*settings)["status"] == "preview"
+    path = brain.state / "agent-log.json"
+    assert not path.exists()
+    assert log.start_session(*settings, apply=True)["status"] == "enabled"
+    assert AgentLog(Brain(brain.config)).status()["session_policy"]["id"] == "session-demo"
+    with pytest.raises(Conflict):
+        log.start_session(*settings, apply=True)
+    with pytest.raises(Conflict):
+        log.configure(True, log.status()["revision"])
+    check = dict(action(), kind="check", command=None, context="")
+    before = path.read_bytes()
+    for fields in [
+        {"session": "other"},
+        {"agent": "codex"},
+        {"project": None},
+        {"kind": "command-executed", "command": "echo demo"},
+    ]:
+        assert log.record(dict(check, **fields))["reason"] == "agent-log-session-policy"
+    for fields in [
+        {"context": "Raw output excluded"},
+        {"command": "echo demo"},
+        {"references": [{"kind": "file", "target": "private/example.txt", "label": "Example"}]},
+    ]:
+        assert log.record(dict(check, **fields))["reason"] == "agent-log-session-needs-redaction"
+    visit = dict(
+        check,
+        event_id="synthetic-visit",
+        kind="page-visited",
+        references=[{"kind": "url", "target": "https://example.test/path", "label": "Reference"}],
+    )
+    for suffix in ["?view=example", "#private-section", "?"]:
+        ref = dict(visit["references"][0], target=f"https://example.test/path{suffix}")
+        assert (
+            log.record(dict(visit, references=[ref]))["reason"]
+            == "agent-log-session-needs-redaction"
+        )
+    assert path.read_bytes() == before
+    assert log.record(check)["status"] == log.record(visit)["status"] == "saved"
+    assert log.query(filters={"session": "session-demo", "kind": "check"})["total"] == 1
+    assert log.query(filters={"session": "unknown"})["total"] == 0
+    backup(brain, tmp_path / "bundle")
+    restore(tmp_path / "bundle", tmp_path / "restored")
+    recovered = Brain(load_config(tmp_path / "restored/config.json"))
+    recovered.pause(False)
+    assert AgentLog(recovered).status()["enabled"] is False
+    assert "session_policy" not in AgentLog(recovered).status()
+    assert AgentLog(recovered).read(visit["event_id"])["item"]["session"] == "session-demo"
+    assert AgentLog(recovered).record(dict(check, event_id="new"))["status"] == "blocked"
+    now += timedelta(minutes=1)
+    assert log.status()["enabled"] is False
+    assert log.record(dict(check, event_id="expired"))["reason"] == "agent-log-session-expired"
+    assert log.record(check)["status"] == "duplicate"
+    log.configure(False, log.status()["revision"])
+    assert log.export()["schema_version"] == 1
+    assert log.status()["total"] == 2 and "session_policy" not in log.status()
 
 
 def test_http_origin_activation_and_safe_reference_resolution(brain):

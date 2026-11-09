@@ -222,6 +222,20 @@ def test_remote_agent_log_read_write_roles(remote):
             assert saved.data["status"] == "saved"
             result = await reader.call_tool("read_agent_log", {"event_id": "example-action"})
             assert result.data["item"]["command"] == action()["command"]
+            log = AgentLog(brain)
+            log.configure(False, log.status()["revision"])
+            log.start_session(
+                "session-demo", "manual", "demo", ["command-executed"], 60, apply=True
+            )
+            status = (await writer.call_tool("memory_status", {})).data["agent_log"]
+            assert not status["enabled"] and "session_policy" not in status
+            denied = await writer.call_tool(
+                "record_agent_action",
+                {"candidate": dict(action(), event_id="foreign-transport", context="")},
+            )
+            assert denied.data["status"] == "blocked"
+            result = await reader.call_tool("read_agent_log", {})
+            assert result.data["total"] == 1 and "session_policy" not in result.data
 
     asyncio.run(scenario())
 

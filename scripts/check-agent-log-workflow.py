@@ -167,6 +167,9 @@ def main():
                 }
             )
             log.configure(False, log.status()["revision"])
+            log.start_session("session-new", "manual", "demo", ["check"], 1, apply=True)
+            if scope == "work":
+                brain.now = lambda: datetime(2026, 11, 3, 13, 32, tzinfo=ZoneInfo("Europe/Madrid"))
             originals = {p: p.read_bytes() for p in brain.vault.rglob("*.md")}
             ledger = brain.ledger_path.read_bytes()
             with ViewerServer(brain) as server:

@@ -7,7 +7,7 @@ from datetime import datetime
 
 from filelock import Timeout
 
-from second_brain.agent_log import AgentLog, validate_event
+from second_brain.agent_log import AgentLog, capture_block_reason, validate_event
 from second_brain.core import (
     PENDING_CHECKPOINT,
     SLUG,
@@ -240,7 +240,9 @@ def record_checkpoint(brain, candidate):
             check_journal_room(brain, payload, now)
             at = now.isoformat(timespec="seconds")
             log_data = log.export() if log else None
-            log_enabled = log_data is not None and log_data["enabled"]
+            log_enabled = (
+                log_data is not None and capture_block_reason(log_data, action, now) is None
+            )
             if log_enabled:
                 log_data["items"].append(dict(action, recorded_at=at))
                 log._serialize(log_data)

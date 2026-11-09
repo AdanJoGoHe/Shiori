@@ -3,6 +3,11 @@
 Check `memory_status.agent_log` for availability and activation in the connected work profile.
 Use `record_agent_action` with its advertised schema for a reviewed action when the log is
 enabled. Activation is an explicit user action. Keep one stable session ID and unique event IDs.
+If status includes `session_policy`, record only work the user assigned to that session. Match
+its ID, agent, project and allowed kinds. Send an empty context, concise reviewed summaries
+and commands only for command kinds. Remove query strings and fragments from reviewed URL
+references for found links or visits. Use file references for file changes. An expired policy
+ends new capture for that session.
 For a checkpoint action, use its event ID, agent and task project, and leave room for the task
 and journal references. The checkpoint adds those references.
 

@@ -41,6 +41,9 @@ def default_config():
 
 
 def create_parser(managed=False):
+    from second_brain.agent_log import KINDS
+    from second_brain.core import AGENTS
+
     parser = argparse.ArgumentParser(
         prog="shiori.cmd run" if managed else None,
         description="Shiori: Markdown memory and journal",
@@ -157,6 +160,20 @@ def create_parser(managed=False):
     for action in ["enable", "disable"]:
         toggle = log_actions.add_parser(action)
         toggle.add_argument("--apply", action="store_true")
+    session = log_actions.add_parser(
+        "start-session", help="Allow selected actions for a limited time"
+    )
+    session.add_argument("session_id")
+    session.add_argument("--agent", choices=sorted(AGENTS), required=True)
+    session.add_argument("--project", help="Exact project slug; omit for actions without a project")
+    session.add_argument(
+        "--kind",
+        action="append",
+        choices=sorted(KINDS),
+        help="Repeat to allow multiple kinds; defaults to check",
+    )
+    session.add_argument("--minutes", type=int, default=120, help="Duration in minutes, 1–480")
+    session.add_argument("--apply", action="store_true")
     record = log_actions.add_parser("record")
     record.add_argument(
         "--event-file",
@@ -473,6 +490,15 @@ def main():
             log = AgentLog(brain)
             if args.log_action == "record":
                 result = log.record(read_json(args.event_file))
+            elif args.log_action == "start-session":
+                result = log.start_session(
+                    args.session_id,
+                    args.agent,
+                    args.project,
+                    args.kind or ["check"],
+                    args.minutes,
+                    apply=args.apply,
+                )
             elif args.log_action == "read":
                 result = log.read(args.event_id)
             elif args.log_action == "list":

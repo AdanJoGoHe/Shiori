@@ -77,6 +77,9 @@ Run `scripts/check-scale.py` for small/large disposable HTTP scenarios (up to 10
 Python heap peak from a separate traced request; it does not measure process RSS or
 guarantee latency on other machines. Reports and screenshots stay outside source Git.
 
+Run the [agent workflow comparison](agent-efficiency.md) locally with separate installed baseline
+and candidate wheels to measure the five scripted workflows before publishing a candidate.
+
 Preparing a release may end with a verified GitHub draft. Publication is a separate explicit
 owner instruction. When an older draft must be preserved, use a new version and mark the
 old draft obsolete without deleting or replacing its assets.

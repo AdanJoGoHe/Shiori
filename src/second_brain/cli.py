@@ -21,6 +21,7 @@ MANAGED_COMMANDS = (
     "classify",
     "note",
     "pending",
+    "checkpoint-resolve",
     "pause",
     "resume",
     "catalog",
@@ -144,6 +145,14 @@ def create_parser(managed=False):
     pending = sub.add_parser("pending", help="List pending capture identifiers without bodies")
     pending.add_argument("--offset", type=int, default=0)
     pending.add_argument("--limit", type=int, default=25)
+    resolution = sub.add_parser(
+        "checkpoint-resolve", help="Preview supervised recovery of a pending checkpoint"
+    )
+    resolution.add_argument("--apply", action="store_true", help="Confirm the previewed resolution")
+    resolution.add_argument("--expect-revision", help="Revision returned by the recovery preview")
+    resolution.add_argument(
+        "--backup", type=Path, help="New local recovery directory required to apply"
+    )
     journal = sub.add_parser("journal", help="Read daily progress without changing memory")
     journal.add_argument("--start-date")
     journal.add_argument("--end-date")
@@ -305,15 +314,27 @@ def main():
             if result["status"] not in {"ready", "empty"}:
                 raise SystemExit(1)
             return
-        if args.command == "doctor" and args.checkpoint:
+        if (args.command == "doctor" and args.checkpoint) or args.command == "checkpoint-resolve":
+            from second_brain.checkpoint_recovery import resolve_checkpoint
             from second_brain.checkpoints import diagnose_checkpoint
 
             try:
-                result = diagnose_checkpoint(Brain(load_config(args.config), initialize=False))
+                brain = Brain(load_config(args.config), initialize=False)
             except (OSError, ValueError, KeyError, TypeError):
                 result = {"status": "unavailable", "reason": "profile-unavailable"}
+            else:
+                result = (
+                    diagnose_checkpoint(brain)
+                    if args.command == "doctor"
+                    else resolve_checkpoint(
+                        brain,
+                        apply=args.apply,
+                        expect_revision=args.expect_revision,
+                        backup_path=args.backup,
+                    )
+                )
             print(json.dumps(result, ensure_ascii=False, indent=2))
-            if result["status"] == "unavailable":
+            if result["status"] in {"unavailable", "blocked"}:
                 raise SystemExit(1)
             return
         if args.command in {"paths", "repair-paths"}:

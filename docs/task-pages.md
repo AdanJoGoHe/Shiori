@@ -157,8 +157,32 @@ second-brain --config .\perfil.json doctor --checkpoint
 La salida muestra el evento, la ficha, la fecha y el estado del registro de
 captura, Diario, nota, Agent Log y recibo de ficha. `indeterminate` indica que ese estado
 no pudo verificarse. El diagnóstico solo devuelve metadatos y mantiene el bloqueo. Si falta
-el candidato, conserva el perfil original y revisa una [copia restaurada](memory-transfer.md)
-por separado.
+el candidato, pide una vista previa de la resolución.
+
+```powershell
+.\shiori.cmd run checkpoint-resolve
+```
+
+- `finalize` confirma que el recibo y las escrituras coinciden. Conserva los datos y cierra la reserva.
+- `abandon` archiva una reserva cuando se puede comprobar que no dejó efectos. Shiori guarda la decisión y rechaza un
+  reintento posterior de ese checkpoint. Prepara un evento nuevo si quieres volver a iniciarlo.
+- `blocked` indica efectos parciales o que requieren revisión. Conserva el perfil original y
+  examina una [copia restaurada](memory-transfer.md) por separado. Si tienes el candidato original,
+  el procedimiento de reintento sigue disponible.
+
+Si la vista previa devuelve `ready`, copia su `revision`. Elige un directorio nuevo y privado
+para el backup, fuera de la memoria y de carpetas sincronizadas o compartidas.
+
+```powershell
+$revision = 'pega-aqui-la-revision'
+.\shiori.cmd run checkpoint-resolve --apply --expect-revision $revision --backup .\recuperacion-checkpoint
+```
+
+Shiori verifica la copia y comprueba de nuevo el estado antes de escribir. Si la resolución se
+interrumpe, vuelve a pedir la vista previa y elige un nuevo destino para la copia. Para el CLI
+directo, usa `second-brain --config .\perfil.json checkpoint-resolve` con los mismos argumentos.
+El primer uso de `--apply` que registra una resolución pasa las fichas al esquema 4. Para
+actualizar o volver atrás necesitas una versión que entienda ese esquema.
 
 Cada perfil admite una operación pendiente. Mientras se recupera, las nuevas escrituras de
 fichas, capturas y acciones esperan para evitar conflictos. Las lecturas siguen disponibles y

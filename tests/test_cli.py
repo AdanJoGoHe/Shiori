@@ -67,6 +67,26 @@ def test_checkpoint_doctor_reports_metadata_without_writing(tmp_path, monkeypatc
     assert before == {
         p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and p.suffix != ".lock"
     }
+    recovery = [*command[:-2], "checkpoint-resolve"]
+    previewed = subprocess.run(recovery, capture_output=True, encoding="utf-8", timeout=15)
+    preview = json.loads(previewed.stdout)
+    assert previewed.returncode == 0 and preview["action"] == "abandon"
+    destination = tmp_path / "separate-copy"
+    applied = subprocess.run(
+        [
+            *recovery,
+            "--apply",
+            "--expect-revision",
+            preview["revision"],
+            "--backup",
+            str(destination),
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=15,
+    )
+    assert applied.returncode == 0 and json.loads(applied.stdout)["status"] == "resolved"
+    assert (destination / "manifest.json").is_file()
 
 
 def test_catalog_doctor_is_read_only_redacted_and_reports_mismatch(tmp_path):

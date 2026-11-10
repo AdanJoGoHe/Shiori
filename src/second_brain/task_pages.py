@@ -140,7 +140,7 @@ def decode(raw):
     if (
         not isinstance(data, dict)
         or type(data.get("schema_version")) is not int
-        or data["schema_version"] not in {1, 2, 3}
+        or data["schema_version"] not in {1, 2, 3, 4}
         or set(data)
         != (
             {"schema_version", "scope", "items"}
@@ -160,8 +160,7 @@ def decode(raw):
             "updated_at",
         }
         if not isinstance(item, dict) or (
-            set(item) != base
-            and (data["schema_version"] != 3 or set(item) != base | {"checkpoint"})
+            set(item) != base and (data["schema_version"] < 3 or set(item) != base | {"checkpoint"})
         ):
             raise ValueError("Invalid task record")
         if validate_fields({key: item[key] for key in FIELDS}) != {
@@ -196,13 +195,8 @@ def decode(raw):
         if (
             not SLUG.fullmatch(event_id)
             or not isinstance(event, dict)
-            or (
-                set(event) != {"fingerprint", "key", "version"}
-                and (
-                    data["schema_version"] != 3
-                    or set(event) != {"fingerprint", "key", "version", "checkpoint"}
-                )
-            )
+            or not {"fingerprint", "key", "version"} <= set(event)
+            or set(event) - {"fingerprint", "key", "version", "checkpoint", "resolution"}
             or not isinstance(event["fingerprint"], str)
             or not re.fullmatch(r"[0-9a-f]{64}", event["fingerprint"])
             or not isinstance(event["key"], str)
@@ -213,7 +207,8 @@ def decode(raw):
         if "checkpoint" in event:
             receipt = event["checkpoint"]
             if (
-                not isinstance(receipt, dict)
+                data["schema_version"] < 3
+                or not isinstance(receipt, dict)
                 or set(receipt) != {"note_id", "agent_log"}
                 or type(receipt["agent_log"]) is not bool
                 or (
@@ -222,6 +217,16 @@ def decode(raw):
                 )
             ):
                 raise ValueError("Invalid checkpoint receipt")
+        if "resolution" in event:
+            resolution = event["resolution"]
+            if (
+                data["schema_version"] < 4
+                or not isinstance(resolution, dict)
+                or set(resolution) != {"action", "at"}
+                or resolution["action"] != ("finalize" if "checkpoint" in event else "abandon")
+                or datetime.fromisoformat(safe_text(resolution["at"], 64)).tzinfo is None
+            ):
+                raise ValueError("Invalid checkpoint resolution receipt")
     for key, event_id in checkpoints.items():
         receipt = events.get(event_id, {})
         if receipt.get("key") != key or "checkpoint" not in receipt:

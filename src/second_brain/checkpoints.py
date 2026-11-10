@@ -59,6 +59,8 @@ def read_plan(brain):
 def _capture_state(brain, plan, journal_path):
     ledger = brain.ledger()
     events = ledger["events"]
+    if not isinstance(events, dict):
+        raise ValueError("Invalid capture events")
     if plan["event_id"] not in events:
         # The legacy intent does not identify a potential note until the ledger reserves it.
         return "absent", "indeterminate"
@@ -99,12 +101,17 @@ def _receipt_state(brain, plan):
     receipt = data.get("events", {}).get(plan["event_id"])
     if receipt is None:
         return "absent"
+    if (
+        receipt["key"] != plan["key"]
+        or receipt["fingerprint"] != plan["fingerprint"]
+        or receipt["version"] != page["version"]
+    ):
+        return "indeterminate"
+    if receipt.get("resolution", {}).get("action") == "abandon":
+        return "abandoned"
     checkpoint = page.get("checkpoint", {})
     if (
         "checkpoint" in receipt
-        and receipt["key"] == plan["key"]
-        and receipt["fingerprint"] == plan["fingerprint"]
-        and receipt["version"] == page["version"]
         and checkpoint.get("event_id") == plan["event_id"]
         and checkpoint.get("at") == plan["at"]
     ):
@@ -292,7 +299,7 @@ def prepare_task(data, page, payload, candidate, plan):
     }
     return dict(
         data,
-        schema_version=3,
+        schema_version=max(3, data["schema_version"]),
         items=[item if row["key"] == plan["key"] else row for row in data["items"]],
         events={**events, plan["event_id"]: receipt},
     ), receipt
@@ -329,7 +336,11 @@ def record_checkpoint(brain, candidate):
             return dict(result, status="conflict", reason="event-id-reused")
         previous = data.get("events", {}).get(event_id)
         if previous:
-            if previous["fingerprint"] != fingerprint or "checkpoint" not in previous:
+            if previous["fingerprint"] != fingerprint:
+                return dict(result, status="conflict", reason="event-id-reused")
+            if previous.get("resolution", {}).get("action") == "abandon":
+                return dict(result, status="blocked", reason="checkpoint-abandoned")
+            if "checkpoint" not in previous:
                 return dict(result, status="conflict", reason="event-id-reused")
             if plan and plan["event_id"] == event_id:
                 path.unlink(missing_ok=True)

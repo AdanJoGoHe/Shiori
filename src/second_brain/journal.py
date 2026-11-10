@@ -13,7 +13,7 @@ MAX_SCAN_BYTES = 16 * 1024 * 1024
 DATA = re.compile(r"<!-- shiori-data:(.+) -->\n")
 
 
-def load_entries(brain, days=None):
+def load_entries(brain, days=None, *, pending_event_id=None):
     """Read one locked snapshot; sequence is ledger insertion order, including tied timestamps."""
     from second_brain.core import validate_candidate
 
@@ -57,7 +57,7 @@ def load_entries(brain, days=None):
                     event = ledger["events"].get(match[1])
                     if not event or datetime.fromisoformat(event["at"]).date() != day:
                         raise ValueError("Untracked journal entry")
-                    if event["status"] != "committed":
+                    if event["status"] != "committed" and match[1] != pending_event_id:
                         continue
                     stop = markers[index + 1].start() if index + 1 < len(markers) else len(content)
                     text = content[match.end() : stop].strip()

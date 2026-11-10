@@ -63,6 +63,11 @@ def create_parser(managed=False):
             checks.add_argument(
                 "--provider", action="store_true", help="Probe local provider status"
             )
+            checks.add_argument(
+                "--checkpoint",
+                action="store_true",
+                help="Inspect the pending checkpoint without writing",
+            )
     sub.add_parser("paths", help="Read-only safe path diagnostics; never initializes roots")
     remote = sub.add_parser("serve-http", help="Opt-in authenticated loopback MCP endpoint")
     remote.add_argument("--credentials-file", type=Path, required=True)
@@ -298,6 +303,17 @@ def main():
                     result["reason"] = "catalog-unavailable"
             print(json.dumps(result, ensure_ascii=False, indent=2))
             if result["status"] not in {"ready", "empty"}:
+                raise SystemExit(1)
+            return
+        if args.command == "doctor" and args.checkpoint:
+            from second_brain.checkpoints import diagnose_checkpoint
+
+            try:
+                result = diagnose_checkpoint(Brain(load_config(args.config), initialize=False))
+            except (OSError, ValueError, KeyError, TypeError):
+                result = {"status": "unavailable", "reason": "profile-unavailable"}
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            if result["status"] == "unavailable":
                 raise SystemExit(1)
             return
         if args.command in {"paths", "repair-paths"}:

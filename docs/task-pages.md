@@ -147,6 +147,19 @@ o aparece `pending`, consulta `memory_status.pending_checkpoint` y reenvía exac
 mismo candidato a `record_checkpoint`. Si la versión está desactualizada, vuelve a leer la
 ficha y usa un ID de evento nuevo para el cambio revisado.
 
+En una instalación gestionada, ejecuta `shiori.cmd run doctor --checkpoint` para inspeccionar
+la operación pendiente. Con el CLI directo puedes indicar el perfil de forma explícita.
+
+```powershell
+second-brain --config .\perfil.json doctor --checkpoint
+```
+
+La salida muestra el evento, la ficha, la fecha y el estado del registro de
+captura, Diario, nota, Agent Log y recibo de ficha. `indeterminate` indica que ese estado
+no pudo verificarse. El diagnóstico solo devuelve metadatos y mantiene el bloqueo. Si falta
+el candidato, conserva el perfil original y revisa una [copia restaurada](memory-transfer.md)
+por separado.
+
 Cada perfil admite una operación pendiente. Mientras se recupera, las nuevas escrituras de
 fichas, capturas y acciones esperan para evitar conflictos. Las lecturas siguen disponibles y
 pueden mostrar el avance antes de que termine la edición de la ficha. La pausa impide continuar

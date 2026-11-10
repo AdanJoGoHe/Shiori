@@ -13,7 +13,8 @@ from fastmcp import Client
 from second_brain.agent_log import AgentLog
 from second_brain.annotations import Conflict
 from second_brain.backup import backup, restore
-from second_brain.checkpoints import read_plan, record_checkpoint
+from second_brain.checkpoint_recovery import resolve_checkpoint
+from second_brain.checkpoints import diagnose_checkpoint, read_plan, record_checkpoint
 from second_brain.core import Brain, PENDING_CHECKPOINT, load_config
 from second_brain.server import create_server
 from second_brain.task_pages import FIELDS, TaskPages
@@ -153,6 +154,12 @@ def test_recover_after_task_write_failure_without_duplicating_journal_or_log(bra
     with monkeypatch.context() as patch:
         patch.setattr(TaskPages, "_write", interrupted)
         assert record_checkpoint(brain, request)["status"] == "pending"
+    diagnosis = diagnose_checkpoint(brain)
+    assert diagnosis["capture_ledger"] == "committed"
+    assert diagnosis["journal"] == diagnosis["agent_log"] == "present"
+    assert diagnosis["note"] == "not-required"
+    assert diagnosis["task_receipt"] == "absent"
+    assert resolve_checkpoint(brain)["reason"] == "effects-incomplete-or-unverified"
     assert TaskPages(brain).read("demo-1")["version"] == 1
     assert read_plan(brain)["event_id"] == "checkpoint-demo"
     assert brain.capture(event(scope=brain.scope))["reason"] == "pending-checkpoint"
@@ -228,6 +235,10 @@ def test_partial_note_capture_survives_backup_and_retries_on_original_day(
         assert record_checkpoint(brain, request)["status"] == "pending"
     assert brain.ledger()["events"]["checkpoint-demo"]["status"] == "pending"
     assert brain.ledger()["notes"] == {}
+    diagnosis = diagnose_checkpoint(brain)
+    assert diagnosis["capture_ledger"] == "pending" and diagnosis["note"] == "present"
+    assert diagnosis["journal"] == diagnosis["task_receipt"] == "absent"
+    assert resolve_checkpoint(brain)["reason"] == "effects-incomplete-or-unverified"
     backup(brain, tmp_path / "bundle")
     restore(tmp_path / "bundle", tmp_path / "restored")
     recovered = Brain(load_config(tmp_path / "restored" / "config.json"))
@@ -282,6 +293,208 @@ def test_checkpoint_retry_cleans_up_after_final_receipt_was_saved(brain, monkeyp
         patch.setattr(Path, "unlink", interrupted)
         assert record_checkpoint(brain, request)["status"] == "pending"
     assert read_plan(brain) and TaskPages(brain).read("DEMO-1")["version"] == 2
+    diagnosis = diagnose_checkpoint(brain)
+    assert diagnosis["task_receipt"] == diagnosis["journal"] == "present"
     brain.pause(True)
     assert record_checkpoint(brain, request)["status"] == "duplicate"
     assert read_plan(brain) is None and len(brain.ledger()["events"]) == 1
+
+
+def test_diagnose_checkpoint_before_capture_and_after_intent_corruption(brain, monkeypatch):
+    create_page(brain)
+    assert diagnose_checkpoint(brain) == {"scope": brain.scope, "status": "clear"}
+
+    def interrupted(*args, **kwargs):
+        raise OSError("synthetic interruption before capture")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(brain, "capture", interrupted)
+        assert record_checkpoint(brain, checkpoint(brain))["status"] == "pending"
+    diagnosis = diagnose_checkpoint(brain)
+    assert (diagnosis["event_id"], diagnosis["issue_key"], diagnosis["at"]) == (
+        "checkpoint-demo",
+        "DEMO-1",
+        NOW.isoformat(),
+    )
+    assert (
+        diagnosis["capture_ledger"] == diagnosis["journal"] == diagnosis["task_receipt"] == "absent"
+    )
+    assert diagnosis["note"] == "indeterminate"
+    assert diagnosis["agent_log"] == "not-required"
+
+    (brain.state / PENDING_CHECKPOINT).write_text("unreadable private details", encoding="utf-8")
+    assert diagnose_checkpoint(brain) == {
+        "scope": brain.scope,
+        "status": "unavailable",
+        "reason": "checkpoint-intent-unavailable",
+    }
+    assert resolve_checkpoint(brain)["status"] == "unavailable"
+
+
+def test_diagnose_checkpoint_reads_pending_journal_marker_without_publishing_it(brain, monkeypatch):
+    from second_brain import core
+
+    create_page(brain)
+    write = core.atomic_write
+
+    def interrupted(path, value):
+        if (
+            path == brain.ledger_path
+            and json.loads(value)["events"]["checkpoint-demo"]["status"] == "committed"
+        ):
+            raise OSError("synthetic interruption before committing the ledger")
+        write(path, value)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(core, "atomic_write", interrupted)
+        assert record_checkpoint(brain, checkpoint(brain))["status"] == "pending"
+    assert build_work_context(brain, "DEMO-1")["recent_progress"] == []
+    diagnosis = diagnose_checkpoint(brain)
+    assert diagnosis["capture_ledger"] == "pending"
+    assert diagnosis["journal"] == "present"
+    assert diagnosis["task_receipt"] == "absent"
+
+    journal = brain.path("journal/2026/2026-11-09.md")
+    journal.write_text("malformed journal", encoding="utf-8")
+    assert diagnose_checkpoint(brain)["journal"] == "indeterminate"
+
+
+def reserve_checkpoint(brain, monkeypatch, request):
+    def interrupted(*args, **kwargs):
+        raise OSError("synthetic interruption before capture")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(brain, "capture", interrupted)
+        assert record_checkpoint(brain, request)["status"] == "pending"
+
+
+def test_resolve_empty_reservation_backs_up_and_prevents_late_replay(brain, tmp_path, monkeypatch):
+    create_page(brain)
+    assert brain.capture(event(scope=brain.scope))["status"] == "saved"
+    request = checkpoint(brain, knowledge=knowledge())
+    reserve_checkpoint(brain, monkeypatch, request)
+    preview = resolve_checkpoint(brain)
+    assert preview["status"] == "ready" and preview["action"] == "abandon"
+    destination = tmp_path / "copy"
+    with pytest.raises(ValueError, match="--expect-revision and --backup"):
+        resolve_checkpoint(brain, apply=True, backup_path=destination)
+    wrong = resolve_checkpoint(brain, apply=True, expect_revision="stale", backup_path=destination)
+    assert wrong["reason"] == "preview-changed" and not destination.exists()
+    unsafe = resolve_checkpoint(
+        brain, apply=True, expect_revision=preview["revision"], backup_path=brain.vault / "copy"
+    )
+    assert unsafe["reason"] == "recovery-copy-failed" and read_plan(brain)
+
+    def confirm(index):
+        return resolve_checkpoint(
+            brain,
+            apply=True,
+            expect_revision=preview["revision"],
+            backup_path=tmp_path / f"copy-{index}",
+        )["status"]
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        assert sorted(workers.map(confirm, [1, 2])) == ["clear", "resolved"]
+    (saved_backup,) = tmp_path.glob("copy-*")
+    assert (saved_backup / "state" / PENDING_CHECKPOINT).exists()
+    assert read_plan(brain) is None
+    assert set(brain.ledger()["notes"]) == {"git-version"}
+    tasks = TaskPages(brain)
+    assert tasks.read("DEMO-1")["version"] == 1
+    assert tasks.export()["events"][request["event_id"]]["resolution"]["action"] == "abandon"
+    assert record_checkpoint(brain, request)["reason"] == "checkpoint-abandoned"
+    assert (
+        record_checkpoint(brain, dict(request, event_id="reviewed-new-event"))["status"] == "saved"
+    )
+    assert tasks.export()["schema_version"] == 4
+
+    restore(saved_backup, tmp_path / "original-copy")
+    original = Brain(load_config(tmp_path / "original-copy" / "config.json"))
+    refused = resolve_checkpoint(
+        original, apply=True, expect_revision=preview["revision"], backup_path=destination
+    )
+    assert refused["reason"] == "preview-changed" and not destination.exists()
+    assert read_plan(original)["event_id"] == request["event_id"]
+
+    backup(brain, destination)
+    restore(destination, tmp_path / "resolved-copy")
+    recovered = Brain(load_config(tmp_path / "resolved-copy" / "config.json"))
+    assert record_checkpoint(recovered, request)["reason"] == "checkpoint-abandoned"
+    assert TaskPages(recovered).export() == tasks.export()
+
+
+def test_resolve_completed_receipt_preserves_note_journal_and_log(brain, tmp_path, monkeypatch):
+    create_page(brain)
+    AgentLog(brain).configure(True, 0)
+    request = checkpoint(brain, knowledge=knowledge(), agent_action=reviewed_action(brain))
+    unlink = Path.unlink
+
+    def interrupted(path, *args, **kwargs):
+        if path.name == PENDING_CHECKPOINT:
+            raise OSError("synthetic interruption at intent cleanup")
+        return unlink(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", interrupted)
+        assert record_checkpoint(brain, request)["status"] == "pending"
+    ledger = brain.ledger_path.read_bytes()
+    vault = {path: path.read_bytes() for path in brain.vault.rglob("*.md")}
+    log = (brain.state / "agent-log.json").read_bytes()
+    task = TaskPages(brain).read("DEMO-1")
+    preview = resolve_checkpoint(brain)
+    assert preview["status"] == "ready" and preview["action"] == "finalize"
+    result = resolve_checkpoint(
+        brain, apply=True, expect_revision=preview["revision"], backup_path=tmp_path / "copy"
+    )
+    assert result["status"] == "resolved" and result["backup_saved"]
+    assert read_plan(brain) is None
+    assert TaskPages(brain).read("DEMO-1") == task
+    assert (
+        TaskPages(brain).export()["events"][request["event_id"]]["resolution"]["action"]
+        == "finalize"
+    )
+    assert record_checkpoint(brain, request)["status"] == "duplicate"
+    assert brain.ledger_path.read_bytes() == ledger
+    assert (brain.state / "agent-log.json").read_bytes() == log
+    assert {path: path.read_bytes() for path in brain.vault.rglob("*.md")} == vault
+
+
+def test_resolve_retries_cleanup_after_audit_and_refuses_untracked_note(
+    brain, tmp_path, monkeypatch
+):
+    create_page(brain)
+    request = checkpoint(brain)
+    reserve_checkpoint(brain, monkeypatch, request)
+    orphan = brain.path("knowledge/orphan.md")
+    orphan.parent.mkdir(exist_ok=True)
+    orphan.write_text("Synthetic orphan", encoding="utf-8")
+    assert resolve_checkpoint(brain)["reason"] == "effects-incomplete-or-unverified"
+    orphan.unlink()
+    preview = resolve_checkpoint(brain)
+    unlink = Path.unlink
+
+    def interrupted(path, *args, **kwargs):
+        if path == brain.state / PENDING_CHECKPOINT:
+            raise OSError("synthetic interruption after resolution receipt")
+        return unlink(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", interrupted)
+        failed = resolve_checkpoint(
+            brain, apply=True, expect_revision=preview["revision"], backup_path=tmp_path / "first"
+        )
+    assert failed["reason"] == "resolution-interrupted" and failed["backup_saved"]
+    assert (
+        read_plan(brain) and record_checkpoint(brain, request)["reason"] == "checkpoint-abandoned"
+    )
+    audit = (brain.state / "task-pages.json").read_bytes()
+    retry = resolve_checkpoint(brain)
+    assert retry["action"] == "abandon" and retry["task_receipt"] == "abandoned"
+    assert retry["revision"] != preview["revision"]
+    assert (
+        resolve_checkpoint(
+            brain, apply=True, expect_revision=retry["revision"], backup_path=tmp_path / "second"
+        )["status"]
+        == "resolved"
+    )
+    assert read_plan(brain) is None and (brain.state / "task-pages.json").read_bytes() == audit

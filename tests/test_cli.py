@@ -5,6 +5,90 @@ import sys
 from pathlib import Path
 
 
+def test_checkpoint_doctor_reports_metadata_without_writing(tmp_path, monkeypatch):
+    from second_brain.checkpoints import record_checkpoint
+    from second_brain.core import Brain
+    from test_checkpoints import checkpoint
+    from test_work_context import create_page
+
+    settings = {
+        "schema_version": 1,
+        "scope": "work",
+        "timezone": "UTC",
+        "vault_path": str(tmp_path / "vault"),
+        "state_path": str(tmp_path / "state"),
+    }
+    config = tmp_path / "selected.json"
+    config.write_text(json.dumps(settings), encoding="utf-8")
+    command = [
+        sys.executable,
+        "-m",
+        "second_brain.cli",
+        "--config",
+        str(config),
+        "doctor",
+        "--checkpoint",
+    ]
+    absent = subprocess.run(command, capture_output=True, encoding="utf-8", timeout=15)
+    assert absent.returncode == 1 and not absent.stderr
+    assert json.loads(absent.stdout)["status"] == "unavailable"
+    assert not Path(settings["state_path"]).exists() and not Path(settings["vault_path"]).exists()
+
+    brain = Brain(settings)
+    create_page(brain)
+
+    def interrupted(*args, **kwargs):
+        raise OSError("synthetic interruption before capture")
+
+    monkeypatch.setattr(brain, "capture", interrupted)
+    assert record_checkpoint(brain, checkpoint(brain))["status"] == "pending"
+    before = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and p.suffix != ".lock"}
+    inspected = subprocess.run(command, capture_output=True, encoding="utf-8", timeout=15)
+    assert inspected.returncode == 0 and not inspected.stderr
+    report = json.loads(inspected.stdout)
+    assert (report["scope"], report["status"], report["event_id"]) == (
+        "work",
+        "pending",
+        "checkpoint-demo",
+    )
+    assert set(report) == {
+        "scope",
+        "status",
+        "event_id",
+        "issue_key",
+        "at",
+        "next_step",
+        "capture_ledger",
+        "note",
+        "journal",
+        "task_receipt",
+        "agent_log",
+    }
+    assert before == {
+        p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and p.suffix != ".lock"
+    }
+    recovery = [*command[:-2], "checkpoint-resolve"]
+    previewed = subprocess.run(recovery, capture_output=True, encoding="utf-8", timeout=15)
+    preview = json.loads(previewed.stdout)
+    assert previewed.returncode == 0 and preview["action"] == "abandon"
+    destination = tmp_path / "separate-copy"
+    applied = subprocess.run(
+        [
+            *recovery,
+            "--apply",
+            "--expect-revision",
+            preview["revision"],
+            "--backup",
+            str(destination),
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=15,
+    )
+    assert applied.returncode == 0 and json.loads(applied.stdout)["status"] == "resolved"
+    assert (destination / "manifest.json").is_file()
+
+
 def test_catalog_doctor_is_read_only_redacted_and_reports_mismatch(tmp_path):
     from second_brain.core import Brain
     from test_core import event

@@ -298,7 +298,7 @@ def validate_note(content, note_id, scope="personal"):
 
 
 class Brain:
-    def __init__(self, config):
+    def __init__(self, config, *, initialize=True):
         if config.get("scope") not in SCOPES:
             raise ValueError("Unsupported deployment scope")
         if not {"vault_path", "state_path", "timezone"}.issubset(config):
@@ -313,7 +313,8 @@ class Brain:
                 self.state / "basic-memory"
             ):
                 raise ValueError("Work provider must use state/basic-memory")
-            self.vault, self.state = initialize_work(self.vault, self.state)
+            if initialize:
+                self.vault, self.state = initialize_work(self.vault, self.state)
         check_store(self.scope, self.vault, self.state)
         self.ledger_path = scoped_path(self.state, "ledger.json")
         if self.ledger_path.exists() and not self.vault.is_dir():
@@ -326,10 +327,13 @@ class Brain:
                 for folder, pattern in managed
             ):
                 raise ValueError("Existing vault requires its ledger; inspect paths")
-        if not self.vault.is_dir():
-            self.vault = initialize_root(self.vault)
-        if not self.state.is_dir():
-            self.state = initialize_root(self.state)
+        if initialize:
+            if not self.vault.is_dir():
+                self.vault = initialize_root(self.vault)
+            if not self.state.is_dir():
+                self.state = initialize_root(self.state)
+        elif not self.vault.is_dir() or not self.state.is_dir():
+            raise ValueError("Existing deployment roots are required")
         self.ledger_path = scoped_path(self.state, "ledger.json")
         self.lock = FileLock(scoped_path(self.state, "capture.lock"), timeout=5)
         from second_brain.local_search import LocalSearch

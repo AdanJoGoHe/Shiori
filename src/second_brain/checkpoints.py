@@ -13,6 +13,7 @@ from second_brain.core import (
     SLUG,
     TYPES,
     atomic_write,
+    parse_note,
     safe_text,
     scoped_path,
     validate_candidate,
@@ -23,6 +24,7 @@ from second_brain.workflow import check_capture, metadata as journal_metadata
 
 REQUIRED = {"scope", "issue_key", "event_id", "expected_version", "source_agent", "summary"}
 OPTIONAL = {"status", "progress", "knowledge", "agent_action"}
+INSPECTION_ERRORS = (OSError, ValueError, KeyError, TypeError, AttributeError, Timeout)
 
 
 def decode_plan(raw, scope):
@@ -52,6 +54,148 @@ def read_plan(brain):
             return decode_plan(stream.read(2049), brain.scope)
     except FileNotFoundError:
         return None
+
+
+def _capture_state(brain, plan, journal_path):
+    ledger = brain.ledger()
+    events = ledger["events"]
+    if not isinstance(events, dict):
+        raise ValueError("Invalid capture events")
+    if plan["event_id"] not in events:
+        # The legacy intent does not identify a potential note until the ledger reserves it.
+        return "absent", "indeterminate"
+    event = events[plan["event_id"]]
+    if (
+        event["at"] != plan["at"]
+        or event["status"] not in {"pending", "committed"}
+        or not re.fullmatch(r"[0-9a-f]{64}", event["fingerprint"])
+    ):
+        raise ValueError("Capture record does not match checkpoint intent")
+    relative = event["path"]
+    if relative == journal_path:
+        return event["status"], "not-required"
+    note = re.fullmatch(r"([a-z-]+)/([a-z0-9][a-z0-9-]{0,99})\.md", relative)
+    if not note or note[1] not in TYPES.values():
+        raise ValueError("Invalid checkpoint note path")
+    if event["status"] == "committed" and ledger["notes"].get(note[2]) != relative:
+        return event["status"], "indeterminate"
+    try:
+        with brain.path(relative).open(encoding="utf-8") as stream:
+            metadata, _, _ = parse_note(stream.read(100001), note[2], brain.scope)
+        if datetime.fromisoformat(str(metadata["created_at"])) != datetime.fromisoformat(
+            plan["at"]
+        ):
+            return event["status"], "indeterminate"
+    except FileNotFoundError:
+        return event["status"], "absent" if event["status"] == "pending" else "indeterminate"
+    except INSPECTION_ERRORS:
+        return event["status"], "indeterminate"
+    return event["status"], "present"
+
+
+def _receipt_state(brain, plan):
+    data = TaskPages(brain).export()
+    page = next((row for row in data["items"] if row["key"] == plan["key"]), None)
+    if page is None:
+        return "indeterminate"
+    receipt = data.get("events", {}).get(plan["event_id"])
+    if receipt is None:
+        return "absent"
+    if (
+        receipt["key"] != plan["key"]
+        or receipt["fingerprint"] != plan["fingerprint"]
+        or receipt["version"] != page["version"]
+    ):
+        return "indeterminate"
+    if receipt.get("resolution", {}).get("action") == "abandon":
+        return "abandoned"
+    checkpoint = page.get("checkpoint", {})
+    if (
+        "checkpoint" in receipt
+        and checkpoint.get("event_id") == plan["event_id"]
+        and checkpoint.get("at") == plan["at"]
+    ):
+        return "present"
+    return "indeterminate"
+
+
+def _log_state(brain, plan):
+    if not plan["log"]:
+        return "not-required"
+    if not scoped_path(brain.state, "agent-log.json").is_file():
+        return "indeterminate"
+    row = next(
+        (
+            item
+            for item in AgentLog(brain).export()["items"]
+            if item["event_id"] == plan["event_id"]
+        ),
+        None,
+    )
+    if row is None:
+        return "absent"
+    refs = {(ref["kind"], ref["target"]) for ref in row["references"]}
+    if row["recorded_at"] == plan["at"] and {
+        ("content", f"task:{brain.scope}:{plan['key']}"),
+        ("journal-event", plan["event_id"]),
+    }.issubset(refs):
+        return "present"
+    return "indeterminate"
+
+
+def diagnose_checkpoint(brain):
+    """Describe one pending operation without returning the candidate or changing stores."""
+    result = {"scope": brain.scope}
+    try:
+        with brain.lock:
+            try:
+                plan = read_plan(brain)
+            except INSPECTION_ERRORS:
+                return dict(result, status="unavailable", reason="checkpoint-intent-unavailable")
+            if plan is None:
+                return dict(result, status="clear")
+            day = datetime.fromisoformat(plan["at"]).date()
+            result.update(
+                status="pending",
+                event_id=plan["event_id"],
+                issue_key=plan["key"],
+                at=plan["at"],
+                next_step="retry-original-candidate-or-inspect-a-separate-recovery-copy",
+            )
+            try:
+                result["capture_ledger"], result["note"] = _capture_state(
+                    brain, plan, f"journal/{day:%Y}/{day:%Y-%m-%d}.md"
+                )
+            except INSPECTION_ERRORS:
+                result.update(capture_ledger="indeterminate", note="indeterminate")
+            try:
+                entries, errors = load_entries(brain, [day], pending_event_id=plan["event_id"])
+                entry = next((row for row in entries if row["event_id"] == plan["event_id"]), None)
+                if (
+                    errors
+                    or result["capture_ledger"] == "indeterminate"
+                    or (
+                        entry
+                        and (
+                            not entry["structured"]
+                            or entry["at"] != plan["at"]
+                            or entry["title"] != f"Checkpoint {plan['key']}"
+                        )
+                    )
+                ):
+                    result["journal"] = "indeterminate"
+                else:
+                    result["journal"] = "present" if entry else "absent"
+            except INSPECTION_ERRORS:
+                result["journal"] = "indeterminate"
+            for field, inspect in (("task_receipt", _receipt_state), ("agent_log", _log_state)):
+                try:
+                    result[field] = inspect(brain, plan)
+                except INSPECTION_ERRORS:
+                    result[field] = "indeterminate"
+            return result
+    except Timeout:
+        return dict(result, status="unavailable", reason="profile-busy")
 
 
 def capture_payload(brain, page, candidate):
@@ -155,7 +299,7 @@ def prepare_task(data, page, payload, candidate, plan):
     }
     return dict(
         data,
-        schema_version=3,
+        schema_version=max(3, data["schema_version"]),
         items=[item if row["key"] == plan["key"] else row for row in data["items"]],
         events={**events, plan["event_id"]: receipt},
     ), receipt
@@ -192,7 +336,11 @@ def record_checkpoint(brain, candidate):
             return dict(result, status="conflict", reason="event-id-reused")
         previous = data.get("events", {}).get(event_id)
         if previous:
-            if previous["fingerprint"] != fingerprint or "checkpoint" not in previous:
+            if previous["fingerprint"] != fingerprint:
+                return dict(result, status="conflict", reason="event-id-reused")
+            if previous.get("resolution", {}).get("action") == "abandon":
+                return dict(result, status="blocked", reason="checkpoint-abandoned")
+            if "checkpoint" not in previous:
                 return dict(result, status="conflict", reason="event-id-reused")
             if plan and plan["event_id"] == event_id:
                 path.unlink(missing_ok=True)
